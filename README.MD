@@ -25,8 +25,3 @@ curl --request POST \
     "assistant": "smart",
     "message": "o que ocorre quando uma tabela de precos for atualizada?"
 }'
-
-
-
-Learn Voiceflow
-https://www.youtube.com/watch?v=SNwqkdhv1HQ
