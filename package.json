@@ -5,14 +5,15 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "PORT=4080 ts-node src/server.ts",
+    "start": "PORT=4014 ts-node src/server.ts",
     "assistant": "ts-node src/assistants.ts",
-    "server": "PORT=4080 ts-node src/server.ts",
-    "pm2": "pm2 start yarn  --name assistant -- start -p 4080"
+    "server": "PORT=4014 ts-node src/server.ts",
+    "pm2": "pm2 start yarn  --name assistant -- start -p 4014"
   },
   "author": "Cassio Seffrin",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "openai": "^4.38.3"
   },

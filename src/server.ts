@@ -1,8 +1,10 @@
 import OpenAI from "openai";
 import express, { Request, Response } from "express";
+require('dotenv').config();
+const OPENAI_API_KEY =  process.env.OPENAI_API_KEY;
 const app = express();
 app.use(express.json());
-const openai = new OpenAI({apiKey:process.env.OPENAI_API_KEY});
+const openai = new OpenAI({apiKey:OPENAI_API_KEY});
 async function createNewThreadAndTalk(message: string): Promise<any> {
   const thread = await openai.beta.threads.create({
     messages: [
@@ -34,6 +36,10 @@ async function createNewThread(): Promise<any> {
   return thread;
 }
 
+app.listen("4014", () => {
+  console.log("Assistente iniciado!");
+});
+
 app.get("/createNewThread", async (req: Request, res: Response) => {
   try {
     const thread = await createNewThread();
@@ -44,9 +50,6 @@ app.get("/createNewThread", async (req: Request, res: Response) => {
   }
 });
 
-app.listen("3000", () => {
-  console.log("Assistente iniciado!");
-});
 app.post("/chat", async (req: Request, res: Response) => {
   try {
     let assistantId = "asst_flN0aLfDHU2Mg35WVKz0XIk1";
@@ -60,6 +63,52 @@ app.post("/chat", async (req: Request, res: Response) => {
     res.status(500).send("Internal Server Error");
   }
 });
+
+app.post("/webhookBitrix", async (req: Request, res: Response) => {
+  try {
+    let assistantId = "asst_flN0aLfDHU2Mg35WVKz0XIk1";
+    const thread = await createNewThread();
+    const {   prompt } = req.body;
+    console.log("nova thread: ", thread.id);
+    console.log("Mensagem a ser processada:", prompt);
+    const response = await conversarNovaThreadBitrix(thread.id, assistantId, prompt);
+    res.status(200).send(JSON.stringify(response));
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+
+async function conversarNovaThreadBitrix(
+  threadId: any,
+  assistantId: string,
+  message: string
+) {
+  await openai.beta.threads.messages.create(threadId, {
+    role: "user",
+    content: message,
+  });
+
+  const run = await openai.beta.threads.runs.createAndPoll(threadId, {
+    assistant_id: assistantId,
+    // additional_instructions: message,
+  });
+
+  if (run.status == "completed") {
+    const messages = await openai.beta.threads.messages.list(threadId);
+
+    return messages.getPaginatedItems();
+    // for (const message of messages.getPaginatedItems()) {
+    //   // console.log(message);
+    //   return message?.content ?? [];
+    //   break;
+    // }
+  } else {
+    return null;
+  }
+}
+
 
 async function conversar(threadId: any, assistantId: string) {
   const messages = await processMessages(threadId, assistantId);
