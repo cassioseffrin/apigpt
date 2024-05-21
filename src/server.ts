@@ -36,8 +36,12 @@ async function createNewThread(): Promise<any> {
   return thread;
 }
 
-app.listen("4014", () => {
-  console.log("Assistente iniciado!");
+// app.listen("4014", () => {
+//   console.log("Assistente iniciado!");
+// });
+
+app.listen(4014, '0.0.0.0', () => {
+  console.log('Assistente iniciado!');
 });
 
 app.get("/createNewThread", async (req: Request, res: Response) => {
