@@ -131,3 +131,4 @@ dist
 
 .venv/
 src/docx/imgsSmart/
+images_assistant.db

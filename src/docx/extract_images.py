@@ -2,11 +2,13 @@ import sys
 import os
 import unicodedata
 import re
+import sqlite3
 from docx import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 import base64
 from xml.etree import ElementTree as ET
 
+ 
 def sanitize_filename(text):
     # Normalize unicode characters
     text = unicodedata.normalize('NFKD', text)
@@ -76,6 +78,44 @@ def save_images_to_disk(image_data, output_dir):
 def encode_images_to_base64(image_data):
     return [(img_caption, base64.b64encode(img).decode('utf-8')) for img, img_caption in image_data]
 
+def setup_database(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Create tables if they don't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS assistant (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS images (
+            filename TEXT NOT NULL,
+            description TEXT,
+            assistant_id INTEGER,
+            FOREIGN KEY (assistant_id) REFERENCES assistant(id)
+        )
+    ''')
+    
+    conn.commit()
+    return conn
+
+def insert_image_data(conn, image_data):
+    cursor = conn.cursor()
+    
+    # Insert a default assistant (you may modify this as needed)
+    cursor.execute('INSERT INTO assistant (name) VALUES (?)', ('default_assistant',))
+    assistant_id = cursor.lastrowid
+
+    for img, img_caption in image_data:
+        cursor.execute('''
+            INSERT INTO images (filename, description, assistant_id) VALUES (?, ?, ?)
+        ''', (f'{img_caption}.png', img_caption, assistant_id))
+    
+    conn.commit()
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python extract_images.py <file_path> [output_dir]")
@@ -83,7 +123,9 @@ def main():
 
     file_path = sys.argv[1]
     output_dir = sys.argv[2] if len(sys.argv) > 2 else "images"
+    db_path = 'images_assistant.db'
 
+    # Extract images from the DOCX file
     image_data = extract_images_from_docx(file_path)
 
     # Option 1: Save images to disk
@@ -94,6 +136,11 @@ def main():
     # print("Base64 Encoded Images:")
     # for img_caption, img_base64 in images_base64:
     #     print(f'{img_caption}: {img_base64}')
+    
+    # Setup database and insert image data
+    conn = setup_database(db_path)
+    insert_image_data(conn, image_data)
+    conn.close()
 
 if __name__ == "__main__":
     main()
