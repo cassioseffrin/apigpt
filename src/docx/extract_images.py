@@ -4,7 +4,6 @@ import unicodedata
 import re
 from docx import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
-from docx.shared import Inches
 import base64
 
 def sanitize_filename(text):
@@ -20,35 +19,39 @@ def sanitize_filename(text):
 def extract_images_from_docx(file_path):
     document = Document(file_path)
     image_data = []
-    caption_mapping = {}
 
-    # First pass: Map captions to their paragraph indexes
-    for i, paragraph in enumerate(document.paragraphs):
-        if paragraph.style.name == 'Cabeçalho 2':
-            # Store the text of the paragraph with this style
-            caption_mapping[i + 1] = sanitize_filename(paragraph.text)
+    # Iterate through all the document's shapes to find images
+    for shape in document.inline_shapes:
+        graphic = getattr(shape, '_inline', None)
+        if graphic:
+            graphic_data = getattr(graphic, 'graphic', None)
+            if graphic_data:
+                pic = getattr(graphic_data.graphicData, 'pic', None)
+                if pic:
+                    blip_fill = getattr(pic, 'blipFill', None)
+                    if blip_fill:
+                        blip = getattr(blip_fill.blip, 'embed', None)
+                        if blip:
+                            # Access the relationship part for the image
+                            rel = document.part.rels[blip]
+                            if rel.reltype == RT.IMAGE:
+                                # Extract image blob
+                                image = rel.target_part.blob
 
-    # Second pass: Extract images and associate with captions
-    for rel in document.part.rels.values():
-        if rel.reltype == RT.IMAGE:
-            # Find the index of the image's paragraph
-            part = rel.target_part
-            image = part.blob
-            para_index = None
+                                # Get the alt text or name of the image
+                                cNvPr = getattr(pic.nvPicPr.cNvPr, 'descr', None)
+                                name = getattr(pic.nvPicPr.cNvPr, 'name', None)
 
-            # Find the index of the relationship within the document
-            for i, p in enumerate(document.paragraphs):
-                if part.rel_type == RT.IMAGE and p._p.getparent().index(p._p) == rel._rel.idx:
-                    para_index = i
-                    break
+                                # Use alt text if available, otherwise use name
+                                alt_text = cNvPr if cNvPr else name
 
-            # Get the caption text from the mapping
-            if para_index in caption_mapping:
-                image_caption = caption_mapping[para_index]
-            else:
-                image_caption = f'image_{len(image_data) + 1}'
+                                # Check if alt_text or name is available
+                                if alt_text:
+                                    image_caption = sanitize_filename(alt_text)
+                                else:
+                                    image_caption = f'image_{len(image_data) + 1}'
 
-            image_data.append((image, image_caption))
+                                image_data.append((image, image_caption))
 
     return image_data
 
@@ -82,4 +85,7 @@ def main():
     images_base64 = encode_images_to_base64(image_data)
     print("Base64 Encoded Images:")
     for img_caption, img_base64 in images_base64:
-        print(f
+        print(f'{img_caption}: {img_base64}')
+
+if __name__ == "__main__":
+    main()
