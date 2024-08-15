@@ -21,13 +21,14 @@ def sanitize_filename(text):
 def extract_images_from_docx(file_path):
     document = Document(file_path)
     image_data = []
+    image_counter = 1
 
     # Iterate through all the document's shapes to find images
     for shape in document.inline_shapes:
         graphic = shape._inline.graphic
         if not graphic:
             continue
-        
+
         # Convert the graphic to XML
         graphic_xml = graphic.xml
         pic_element = ET.fromstring(graphic_xml)
@@ -45,11 +46,16 @@ def extract_images_from_docx(file_path):
             alt_text = cNvPr_element.get('descr', None)
             if not alt_text:
                 alt_text = cNvPr_element.get('name', None)
-            
-            if not alt_text:
-                alt_text = f'image_{len(image_data) + 1}'
 
-            image_caption = sanitize_filename(alt_text)
+            if not alt_text:
+                alt_text = f'image_{image_counter:04d}'
+
+
+            filename = f'image_{image_counter:04d}' 
+
+            image_counter += 1
+
+            # image_caption = sanitize_filename(alt_text)
 
             # Access the <a:blip> element within the <pic:blipFill>
             blip_element = pic_element.find('.//a:blip', namespaces)
@@ -60,7 +66,7 @@ def extract_images_from_docx(file_path):
                 rel = document.part.rels[embed_id]
                 if rel.reltype == RT.IMAGE:
                     image = rel.target_part.blob
-                    image_data.append((image, alt_text, image_caption))
+                    image_data.append((image, alt_text, filename))
 
     return image_data
 
@@ -149,18 +155,13 @@ def cleanup_files(conn, output_dir, assistant_id):
 
 def main():
     if len(sys.argv) < 4:
-        print("Usage: python extract_images.py <file_path> <assistant_id> <cleanup>")
+        print("Usage: python extract_images.py <file_path> <output_dir> <assistant_id> <cleanup>")
         sys.exit(1)
 
-
-#  [ "/Users/programacao/dev/gpt/src/docx/smartv4.docx" , "/Users/programacao/dev/gpt/src/docx/imgsSmart", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "true" ]
- 
-
-
-    file_path = sys.argv[2]
+    file_path = sys.argv[1]
+    output_dir = sys.argv[2]
     assistant_id = sys.argv[3]
     cleanup = sys.argv[4].lower() == 'true'
-    output_dir = "images"
     db_path = 'images_assistant.db'
 
     # Setup database
@@ -168,21 +169,15 @@ def main():
 
     if cleanup:
         cleanup_files(conn, output_dir, assistant_id)
-    else:
+    # else:
         # Extract images from the DOCX file
-        image_data = extract_images_from_docx(file_path)
+    image_data = extract_images_from_docx(file_path)
 
-        # Option 1: Save images to disk
-        save_images_to_disk(image_data, output_dir)
+    # Option 1: Save images to disk
+    save_images_to_disk(image_data, output_dir)
 
-        # Option 2: Encode images to base64 and print
-        # images_base64 = encode_images_to_base64(image_data)
-        # print("Base64 Encoded Images:")
-        # for img_caption, img_base64 in images_base64:
-        #     print(f'{img_caption}: {img_base64}')
-        
-        # Insert image data
-        insert_image_data(conn, image_data, 'default_assistant', assistant_id)
+    # Insert image data
+    insert_image_data(conn, image_data, 'default_assistant', assistant_id)
     
     conn.close()
 

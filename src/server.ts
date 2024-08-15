@@ -173,3 +173,21 @@ async function processMessages(
   }
   return null;
 }
+
+
+
+ 
+// def handle_user_query(api_client, user_query, images_base64):
+//     response = api_client.chat(user_query)
+//     # Check if the response indicates a need to reference an image
+//     if "image reference" in response:
+//         # Assuming a function to map the query to specific image indices
+//         image_indices = map_query_to_images(user_query)
+//         image_references = [images_base64[i] for i in image_indices]
+//         return image_references
+//     else:
+//         return response
+
+// def map_query_to_images(query):
+//     # Implement logic to determine which images the query refers to
+//     pass
