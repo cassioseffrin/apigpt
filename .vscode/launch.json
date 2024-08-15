@@ -10,7 +10,7 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "args": [ "/Users/programacao/dev/gpt/src/docx/smartv2.docx" , "/Users/programacao/dev/gpt/src/docx/imgsSmart" ]
+      "args": [ "/Users/programacao/dev/gpt/src/docx/smartv4.docx" , "/Users/programacao/dev/gpt/src/docx/imgsSmart" ]
     },
     {
       "type": "node",

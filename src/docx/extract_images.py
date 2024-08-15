@@ -5,6 +5,7 @@ import re
 from docx import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 import base64
+from xml.etree import ElementTree as ET
 
 def sanitize_filename(text):
     # Normalize unicode characters
@@ -22,36 +23,43 @@ def extract_images_from_docx(file_path):
 
     # Iterate through all the document's shapes to find images
     for shape in document.inline_shapes:
-        graphic = getattr(shape, '_inline', None)
-        if graphic:
-            graphic_data = getattr(graphic, 'graphic', None)
-            if graphic_data:
-                pic = getattr(graphic_data.graphicData, 'pic', None)
-                if pic:
-                    blip_fill = getattr(pic, 'blipFill', None)
-                    if blip_fill:
-                        blip = getattr(blip_fill.blip, 'embed', None)
-                        if blip:
-                            # Access the relationship part for the image
-                            rel = document.part.rels[blip]
-                            if rel.reltype == RT.IMAGE:
-                                # Extract image blob
-                                image = rel.target_part.blob
+        graphic = shape._inline.graphic
+        if not graphic:
+            continue
+        
+        # Convert the graphic to XML
+        graphic_xml = graphic.xml
+        pic_element = ET.fromstring(graphic_xml)
 
-                                # Get the alt text or name of the image
-                                cNvPr = getattr(pic.nvPicPr.cNvPr, 'descr', None)
-                                name = getattr(pic.nvPicPr.cNvPr, 'name', None)
+        # Define XML namespaces
+        namespaces = {
+            'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
+            'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+        }
 
-                                # Use alt text if available, otherwise use name
-                                alt_text = cNvPr if cNvPr else name
+        # Access the <pic:cNvPr> element within the <pic:nvPicPr>
+        cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
+        if cNvPr_element is not None:
+            alt_text = cNvPr_element.get('descr', None)
+            if not alt_text:
+                alt_text = cNvPr_element.get('name', None)
+            
+            if alt_text:
+                image_caption = sanitize_filename(alt_text)
+            else:
+                image_caption = f'image_{len(image_data) + 1}'
 
-                                # Check if alt_text or name is available
-                                if alt_text:
-                                    image_caption = sanitize_filename(alt_text)
-                                else:
-                                    image_caption = f'image_{len(image_data) + 1}'
+            # Access the <a:blip> element within the <pic:blipFill>
+            blip_element = pic_element.find('.//a:blip', namespaces)
+            if blip_element is not None:
+                embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
 
-                                image_data.append((image, image_caption))
+                # Retrieve the image blob using the embed ID
+                rel = document.part.rels[embed_id]
+                if rel.reltype == RT.IMAGE:
+                    image = rel.target_part.blob
+                    image_data.append((image, image_caption))
 
     return image_data
 
@@ -82,10 +90,10 @@ def main():
     save_images_to_disk(image_data, output_dir)
 
     # Option 2: Encode images to base64 and print
-    images_base64 = encode_images_to_base64(image_data)
-    print("Base64 Encoded Images:")
-    for img_caption, img_base64 in images_base64:
-        print(f'{img_caption}: {img_base64}')
+    # images_base64 = encode_images_to_base64(image_data)
+    # print("Base64 Encoded Images:")
+    # for img_caption, img_base64 in images_base64:
+    #     print(f'{img_caption}: {img_base64}')
 
 if __name__ == "__main__":
     main()
