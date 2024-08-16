@@ -1,19 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request, send_from_directory 
 import os
 import openai
 import sqlite3
 import base64
 from extract_images import extract_images_from_docx, encode_images_to_base64
 from dotenv import load_dotenv
-
 load_dotenv()
-
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
 app = Flask(__name__)
 openai.api_key = OPENAI_API_KEY
-
-
 def create_new_thread_and_talk(message):
     thread = openai.beta.threads.create(
         messages=[
@@ -24,8 +19,6 @@ def create_new_thread_and_talk(message):
         ]
     )
     return thread
-
-
 @app.route('/startThreadAndTalk', methods=['POST'])
 def start_thread_and_talk():
     try:
@@ -39,12 +32,8 @@ def start_thread_and_talk():
     except Exception as e:
         print(f"Error: {e}")
         return "Error", 500
-
-
 def create_new_thread():
     return openai.beta.threads.create()
-
-
 @app.route('/createNewThread', methods=['GET'])
 def create_new_thread_endpoint():
     try:
@@ -53,9 +42,6 @@ def create_new_thread_endpoint():
     except Exception as e:
         print(f"Error: {e}")
         return "Error creating thread", 500
-
-
-
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -63,41 +49,28 @@ def chat():
         data = request.get_json()
         thread_id = data['threadId']
         message = data['message']
-        
-        
         openai.beta.threads.messages.create(
             thread_id=thread_id,
             role='user',
             content=message
         )
-        
-        
         response = continuar_conversar(thread_id, assistant_id, message)
         if response:
-            
             image_references = []
             for content_block in response.get('content', []):
                 if 'source' in content_block:
                     image_references.append(content_block)
-            
             if image_references:
-                
-                base64_images = {}
+                url_images = {}
                 for ref in image_references:
-                    
                     description = ref
-                    images_base64 = get_images_base64(message)
-                    base64_images.update(images_base64)
-                
-                
-                response['images'] = base64_images
-
+                    images_urls = get_images_urls(message)
+                    url_images.update(images_urls)
+                response['images'] = url_images
         return jsonify(response), 200
     except Exception as error:
         print(f"Error: {error}")
         return "Internal Server Error", 500
-
-
 @app.route('/webhookBitrix', methods=['POST'])
 def webhook_bitrix():
     try:
@@ -110,8 +83,6 @@ def webhook_bitrix():
     except Exception as e:
         print(f"Error: {e}")
         return "Internal Server Error", 500
-
-
 def conversar_nova_thread_bitrix(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,  
@@ -127,8 +98,6 @@ def conversar_nova_thread_bitrix(thread_id, assistant_id, message):
         return [message_to_dict(msg) for msg in messages]
     else:
         return None
-
-
 def conversar(thread_id, assistant_id):
     messages = process_messages(thread_id, assistant_id)
     if messages:
@@ -137,22 +106,16 @@ def conversar(thread_id, assistant_id):
             return message_to_dict(message)  
     else:
         return None
-
-
-
-
 def continuar_conversar(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,  
         role='user',
         content=message
     )
-
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
         assistant_id=assistant_id
     )
-
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
@@ -160,8 +123,6 @@ def continuar_conversar(thread_id, assistant_id, message):
             print(last_message)
             return message_to_dict(last_message)  
     return None
-
-
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
@@ -173,8 +134,6 @@ def process_messages(thread_id, assistant_id):
         messages = openai.beta.threads.messages.list(thread_id)
         return [message_to_dict(message) for message in messages]
     return None
-
-
 def message_to_dict(message):
     return {
         'id': message.id,
@@ -183,30 +142,48 @@ def message_to_dict(message):
         'created_at': message.created_at,
         'thread_id': message.thread_id
     }
-
-
-
 def get_images_base64(description):
     db_path = 'images_assistant.db'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
     cursor.execute('''
         SELECT filename FROM images
         WHERE description LIKE ?
     ''', (f'%{description}%',))
-
     filenames = cursor.fetchall()
     images_base64 = {}
-    
+    image_counter = 0
     for (filename,) in filenames:
         with open(os.path.join('/Users/programacao/dev/gpt/src/docx/imgsSmart', filename), 'rb') as img_file:
             img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
-            images_base64[filename] = img_base64
-
+            image_counter += 1
+            image = f'image_{image_counter:04d}' 
+            images_base64[image] = img_base64
     conn.close()
     return images_base64
-
-
+def get_images_urls(description):
+    db_path = 'images_assistant.db'
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT filename FROM images
+        WHERE description LIKE ?
+    ''', (f'%{description}%',))
+    filenames = cursor.fetchall()
+    images_urls = {}
+    image_counter = 0
+    for (filename,) in filenames:
+        image_counter += 1
+        image = f'image_{image_counter:04d}'
+        images_urls[image] = f'/api/images/{filename}'
+    conn.close()
+    return images_urls
+@app.route('/api/images/<filename>')
+def get_image(filename):
+    image_directory = './docx/imgsSmart/'
+    try:
+        return send_from_directory(image_directory, filename)
+    except FileNotFoundError:
+        return "Image not found", 404
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4014)
