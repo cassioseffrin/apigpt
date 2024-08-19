@@ -162,13 +162,6 @@ def get_images_base64(description):
             images_base64[image] = img_base64
     conn.close()
     return images_base64
-
-
-
-
-
-
-
 # def get_images_urls(description):
 #     db_path = 'images_assistant.db'
 #     conn = sqlite3.connect(db_path)
@@ -186,44 +179,31 @@ def get_images_base64(description):
 #         images_urls[image] = f'/api/images/{filename}'
 #     conn.close()
 #     return images_urls
-
-
-
-
-
 def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'\W+', ' ', text)
     return text.strip()
-
 def custom_match_score(description, desc):
     if description in desc:
         return 100
     return fuzz.token_sort_ratio(description, desc)
-
 def get_images_urls(description, threshold=90, max_results=5):
     db_path = 'images_assistant.db'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
     cursor.execute('SELECT description, filename FROM images')
     rows = cursor.fetchall()
-
     preprocessed_description = preprocess_text(description)
-
     matched_images = []
     for desc, filename in rows:
         preprocessed_desc = preprocess_text(desc)
         match_score = custom_match_score(preprocessed_description, preprocessed_desc)
         if match_score >= threshold:
             matched_images.append((filename, match_score))
-
     matched_images.sort(key=lambda x: x[1], reverse=True)
     top_images = matched_images[:max_results]
-
     if not top_images:
         return {}
-
     images_json = {}
     image_counter = 0
     for filename, match_score in top_images:
@@ -233,11 +213,8 @@ def get_images_urls(description, threshold=90, max_results=5):
             'url': f'/api/images/{filename}',
             'match_score': match_score
         }
-
     conn.close()
     return images_json
-
-
 @app.route('/api/images/<filename>')
 def get_image(filename):
     image_directory = './docx/imgsSmart/'
@@ -245,5 +222,21 @@ def get_image(filename):
         return send_from_directory(image_directory, filename)
     except FileNotFoundError:
         return "Image not found", 404
+# http://localhost:5000/api/getTempImage/temp_image_rId8.png    
+@app.route('/api/getTempImage/<filename>')
+def get_temp_image(filename):
+    image_directory = '/Users/programacao/dev/gpt/tempImages'
+    try:
+        return send_from_directory(image_directory, filename)
+    except FileNotFoundError:
+        return "Image not found", 404
+# @app.route('/api/getTempImage')
+# def get_temp_image(filename):
+#     image_directory = './mytempimageFileSaved/'
+#     try:
+#         return send_from_directory(image_directory, filename)
+#     except FileNotFoundError:
+#         return "Image not found", 404
+        
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4014)
