@@ -1,9 +1,10 @@
-import openai
+from openai import OpenAI
+
+client = OpenAI()
 import docx
 from io import BytesIO
 from PIL import Image
 
-# openai.api_key = "your-api-key"
 
 def get_image_description(image_stream):
     """
@@ -26,16 +27,14 @@ def get_image_description(image_stream):
         )
 
         # Create the chat completion request using the new API structure
-        response = openai.ChatCompletion.create(
-            model="gpt-4-vision",  # Replace with the appropriate model name
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
-        )
+        response = client.chat.completions.create(model="gpt-4-vision",  # Replace with the appropriate model name
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ])
 
         # Get the chat completion content
-        chat_completion = response['choices'][0]['message']['content']
+        chat_completion = response.choices[0].message.content
 
         return {"chatCompletion": chat_completion, "raw": response}
 
@@ -68,7 +67,7 @@ def replace_images_with_text(doc_path):
 
     new_doc.save("output.docx")
     print("Images replaced with descriptions. Saved to output.docx")
- 
+
 
 
 replace_images_with_text("/Users/programacao/dev/gpt/src/docx/smartv5.docx")

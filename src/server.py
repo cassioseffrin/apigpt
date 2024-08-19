@@ -10,7 +10,6 @@ from fuzzywuzzy import fuzz
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
-openai.api_key = OPENAI_API_KEY
 def create_new_thread_and_talk(message):
     thread = openai.beta.threads.create(
         messages=[
@@ -164,10 +163,10 @@ def get_images_base64(description):
     conn.close()
     return images_base64
 
- 
 
 
- 
+
+
 
 
 # def get_images_urls(description):
@@ -188,9 +187,9 @@ def get_images_base64(description):
 #     conn.close()
 #     return images_urls
 
- 
- 
- 
+
+
+
 
 def preprocess_text(text):
     text = text.lower()
@@ -211,20 +210,20 @@ def get_images_urls(description, threshold=90, max_results=5):
     rows = cursor.fetchall()
 
     preprocessed_description = preprocess_text(description)
-    
+
     matched_images = []
     for desc, filename in rows:
         preprocessed_desc = preprocess_text(desc)
         match_score = custom_match_score(preprocessed_description, preprocessed_desc)
         if match_score >= threshold:
             matched_images.append((filename, match_score))
-    
+
     matched_images.sort(key=lambda x: x[1], reverse=True)
     top_images = matched_images[:max_results]
-    
+
     if not top_images:
         return {}
-    
+
     images_json = {}
     image_counter = 0
     for filename, match_score in top_images:
@@ -234,7 +233,7 @@ def get_images_urls(description, threshold=90, max_results=5):
             'url': f'/api/images/{filename}',
             'match_score': match_score
         }
-    
+
     conn.close()
     return images_json
 
