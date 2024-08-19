@@ -5,6 +5,8 @@ import sqlite3
 import base64
 from extract_images import extract_images_from_docx, encode_images_to_base64
 from dotenv import load_dotenv
+import re
+from fuzzywuzzy import fuzz
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
@@ -161,23 +163,82 @@ def get_images_base64(description):
             images_base64[image] = img_base64
     conn.close()
     return images_base64
-def get_images_urls(description):
+
+ 
+
+
+ 
+
+
+# def get_images_urls(description):
+#     db_path = 'images_assistant.db'
+#     conn = sqlite3.connect(db_path)
+#     cursor = conn.cursor()
+#     cursor.execute('''
+#         SELECT filename FROM images
+#         WHERE description LIKE ?
+#     ''', (f'%{description}%',))
+#     filenames = cursor.fetchall()
+#     images_urls = {}
+#     image_counter = 0
+#     for (filename,) in filenames:
+#         image_counter += 1
+#         image = f'image_{image_counter:04d}'
+#         images_urls[image] = f'/api/images/{filename}'
+#     conn.close()
+#     return images_urls
+
+ 
+ 
+ 
+
+def preprocess_text(text):
+    text = text.lower()
+    text = re.sub(r'\W+', ' ', text)
+    return text.strip()
+
+def custom_match_score(description, desc):
+    if description in desc:
+        return 100
+    return fuzz.token_sort_ratio(description, desc)
+
+def get_images_urls(description, threshold=90, max_results=5):
     db_path = 'images_assistant.db'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT filename FROM images
-        WHERE description LIKE ?
-    ''', (f'%{description}%',))
-    filenames = cursor.fetchall()
-    images_urls = {}
+
+    cursor.execute('SELECT description, filename FROM images')
+    rows = cursor.fetchall()
+
+    preprocessed_description = preprocess_text(description)
+    
+    matched_images = []
+    for desc, filename in rows:
+        preprocessed_desc = preprocess_text(desc)
+        match_score = custom_match_score(preprocessed_description, preprocessed_desc)
+        if match_score >= threshold:
+            matched_images.append((filename, match_score))
+    
+    matched_images.sort(key=lambda x: x[1], reverse=True)
+    top_images = matched_images[:max_results]
+    
+    if not top_images:
+        return {}
+    
+    images_json = {}
     image_counter = 0
-    for (filename,) in filenames:
+    for filename, match_score in top_images:
         image_counter += 1
-        image = f'image_{image_counter:04d}'
-        images_urls[image] = f'/api/images/{filename}'
+        image_key = f'image_{image_counter:04d}'
+        images_json[image_key] = {
+            'url': f'/api/images/{filename}',
+            'match_score': match_score
+        }
+    
     conn.close()
-    return images_urls
+    return images_json
+
+
 @app.route('/api/images/<filename>')
 def get_image(filename):
     image_directory = './docx/imgsSmart/'

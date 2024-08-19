@@ -124,7 +124,7 @@ def main():
         cleanup_files(conn, output_dir, assistant_id)
     image_data = extract_images_from_docx(file_path)
     save_images_to_disk(image_data, output_dir)
-    insert_image_data(conn, image_data, 'default_assistant', assistant_id)
+    insert_image_data(conn, image_data, 'Assistente Smart Força de Vendas', assistant_id)
     conn.close()
 if __name__ == "__main__":
     main()
