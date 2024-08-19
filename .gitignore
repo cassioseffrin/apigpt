@@ -133,3 +133,4 @@ dist
 src/docx/imgsSmart/
 images_assistant.db
 images/
+temp_image.png
