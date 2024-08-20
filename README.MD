@@ -25,3 +25,7 @@ curl --request POST \
     "assistant": "smart",
     "message": "o que ocorre quando uma tabela de precos for atualizada?"
 }'
+
+
+
+ python3 extract_images.py "/home/arpa/apigpt/src/docx/smartv5.docx"  "/home/arpa/apigpt/src/docx/imgsSmart"  "asst_flN0aLfDHU2Mg35WVKz0XIk1"  "true" 
