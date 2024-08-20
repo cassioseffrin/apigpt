@@ -227,7 +227,7 @@ def get_image(filename):
 def get_temp_image(filename):
     image_directory = '/Users/programacao/dev/gpt/tempImages'
     try:
-        return send_from_directory(image_directory, filename)
+        return send_from_directory(image_directory, filename, mimetype='image/png')  # Ensure correct MIME type
     except FileNotFoundError:
         return "Image not found", 404
 # @app.route('/api/getTempImage')
