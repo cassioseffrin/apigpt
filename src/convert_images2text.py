@@ -7,8 +7,6 @@ import os
 IMAGE_DIR = './tempImages/'
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getTempImage'
 
-
-
 def get_image_description(image_stream, image_name):
     try:
         image = Image.open(image_stream)
