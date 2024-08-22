@@ -225,7 +225,8 @@ def get_image(filename):
 # http://localhost:5000/api/getTempImage/temp_image_rId8.png    
 @app.route('/api/getTempImage/<filename>')
 def get_temp_image(filename):
-    image_directory = '/Users/programacao/dev/gpt/tempImages'
+    # image_directory = '/Users/programacao/dev/gpt/tempImages'
+    image_directory = '/Users/programacao/dev/gpt/src/docx/imgsSmart'
     try:
         return send_from_directory(image_directory, filename, mimetype='image/png')  # Ensure correct MIME type
     except FileNotFoundError:
