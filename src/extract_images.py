@@ -48,7 +48,6 @@ def get_image_description(image_name):
 def extract_images_from_docx(file_path):
     document = Document(file_path)
     image_data = []
-    image_counter = 1
     for shape in document.inline_shapes:
         graphic = shape._inline.graphic
         if not graphic:
@@ -66,17 +65,55 @@ def extract_images_from_docx(file_path):
             if not alt_text:
                 alt_text = cNvPr_element.get('name', None)
             if not alt_text:
-                alt_text = f'image_{image_counter:04d}'
-            filename = f'image_{image_counter:04d}' 
-            image_counter += 1
+                alt_text = f'image_{len(image_data)+1:04d}'
             blip_element = pic_element.find('.//a:blip', namespaces)
             if blip_element is not None:
                 embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                 rel = document.part.rels[embed_id]
                 if rel.reltype == RT.IMAGE:
                     image = rel.target_part.blob
+                    filename = f'image_{embed_id}.png'
                     image_data.append((image, alt_text, filename))
     return image_data, document
+
+
+import os
+from docx import Document
+
+def update_images_alt_text_with_description(doc_path, output_path, conn):
+    doc = Document(doc_path)
+    namespaces = {
+        'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
+        'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    }
+
+    for shape in doc.inline_shapes:
+        graphic = shape._inline.graphic
+        if not graphic:
+            continue
+        graphic_xml = graphic.xml
+        pic_element = ET.fromstring(graphic_xml)
+        
+        cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
+        if cNvPr_element is not None:
+            existing_alt_text = cNvPr_element.get('descr', None) or cNvPr_element.get('name', None) or f'image_{shape._inline.graphic.graphicData.uri}'
+            
+            blip_element = pic_element.find('.//a:blip', namespaces)
+            if blip_element is not None:
+                embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                img_caption = f'image_{embed_id}.png'
+                description = get_description_from_db(conn, img_caption)
+                if description:
+                    updated_alt_text = f"{existing_alt_text}\n\n{description}"
+                    cNvPr_element.set('descr', updated_alt_text)
+                    cNvPr_element.set('name', updated_alt_text)
+                    cNvPr_element.set('title', updated_alt_text)
+                    
+    doc.save(output_path)
+    print(f"Updated alt text with descriptions. New file: {output_path}")
+
+
 
 def save_images_to_disk(image_data, output_dir):
     if not os.path.exists(output_dir):
@@ -127,8 +164,9 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
             img_description = get_image_description(f'{img_caption}.png')
         cursor.execute('''
             INSERT INTO images (filename, title, description, assistant_id) VALUES (?, ?, ?, ?)
-        ''', (f'{img_caption}.png', img_title, img_description, assistant_row_id))
-    conn.commit()
+        ''', (f'{img_caption}', img_title, img_description, assistant_row_id))
+        conn.commit() # comitando a cada registro, evitar perder tudo se der erro no meio
+    #conn.commit()
 
 def cleanup_files(conn, output_dir, assistant_id):
     cursor = conn.cursor()
@@ -149,16 +187,20 @@ def cleanup_files(conn, output_dir, assistant_id):
     ''', (assistant_id,))
     conn.commit()
 
-def save_document_with_incremental_filename(document, file_path):
-    base_name, extension = os.path.splitext(file_path)
-    for i in range(1, 1000):  # Limit to 999 versions
-        new_file_path = f"{base_name}_{i}{extension}"
-        if not os.path.exists(new_file_path):
-            document.save(new_file_path)
-            print(f"Document saved as {new_file_path}")
-            break
+ 
 
-def replace_images_with_text(doc_path, output_path):
+def get_description_from_db(conn, img_caption):
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT description FROM images WHERE filename = ?
+    ''', (img_caption,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        return "sem descricao"
+
+def replace_images_with_text(doc_path, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
     for paragraph in doc.paragraphs:
@@ -169,21 +211,21 @@ def replace_images_with_text(doc_path, output_path):
                 for shape in inline_shapes:
                     image_data = shape.xpath('.//a:blip/@r:embed')
                     if image_data:
-                        image_part = doc.part.related_parts[image_data[0]]
-                        image_stream = BytesIO(image_part.blob)
-                        image_name = f"temp_image_{image_data[0]}.png"  # Generate a unique name
-                        description = get_image_description(image_name)
+                        embed_id = image_data[0]
+                        img_caption = f'image_{embed_id}.png'
+                        description = get_description_from_db(conn, img_caption)
                         new_paragraph.add_run(description)
             else:
                 new_paragraph.add_run(run.text)
     new_doc.save(output_path)
-    print(f"Images replaced with descriptions. New file saved as {output_path}")
+    print(f"Images replaced with descriptions. New file: {output_path}")
+
 
 def main():
     if len(sys.argv) < 5:
         print("Usage: python extract_images.py <file_path> <output_dir> <assistant_id> <cleanup> <updateAiDescription>")
         sys.exit(1)
-    
+
     file_path = sys.argv[1]
     output_dir = sys.argv[2]
     assistant_id = sys.argv[3]
@@ -193,19 +235,16 @@ def main():
     conn = setup_database(db_path)
     if cleanup:
         cleanup_files(conn, output_dir, assistant_id)
-    
+
     image_data, document = extract_images_from_docx(file_path)
     save_images_to_disk(image_data, output_dir)
     insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
-    
+
     if updateAiDescription:
-        save_document_with_incremental_filename(document, file_path)
-    
-    # Generate the second document with images replaced by descriptions
-    base_name, extension = os.path.splitext(file_path)
-    output_path = f"{base_name}_without_images{extension}"
-    replace_images_with_text(file_path, output_path)
-            
+        # replace_images_with_text(file_path, f"{os.path.splitext(file_path)[0]}_without_images.docx", conn)
+        update_images_alt_text_with_description(file_path, f"{os.path.splitext(file_path)[0]}_updated_description.docx", conn)
+ 
+
     conn.close()
 
 if __name__ == "__main__":
