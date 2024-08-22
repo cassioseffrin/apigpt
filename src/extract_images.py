@@ -76,9 +76,10 @@ def extract_images_from_docx(file_path):
                     image_data.append((image, alt_text, filename))
     return image_data, document
 
+import xml.etree.ElementTree as ET
 
-import os
-from docx import Document
+def print_xml(element, message=""):
+    print(f"{message}:\n{ET.tostring(element, encoding='unicode')}\n")
 
 def update_images_alt_text_with_description(doc_path, output_path, conn):
     doc = Document(doc_path)
@@ -97,6 +98,8 @@ def update_images_alt_text_with_description(doc_path, output_path, conn):
         
         cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
         if cNvPr_element is not None:
+            print_xml(cNvPr_element, "Before Update")
+            
             existing_alt_text = cNvPr_element.get('descr', None) or cNvPr_element.get('name', None) or f'image_{shape._inline.graphic.graphicData.uri}'
             
             blip_element = pic_element.find('.//a:blip', namespaces)
@@ -106,12 +109,21 @@ def update_images_alt_text_with_description(doc_path, output_path, conn):
                 description = get_description_from_db(conn, img_caption)
                 if description:
                     updated_alt_text = f"{existing_alt_text}\n\n{description}"
-                    cNvPr_element.set('descr', updated_alt_text)
-                    cNvPr_element.set('name', updated_alt_text)
-                    cNvPr_element.set('title', updated_alt_text)
                     
+                    # Directly manipulate the underlying XML tree
+                    cNvPr_element.attrib['descr'] = updated_alt_text
+                    cNvPr_element.attrib['name'] = updated_alt_text
+                    cNvPr_element.attrib['title'] = updated_alt_text
+
+                    # Print the XML after the update
+                    print_xml(cNvPr_element, "After Update")
+
+                    # Update the XML element in the shape
+                    shape._inline.graphic._element = pic_element
+
     doc.save(output_path)
     print(f"Updated alt text with descriptions. New file: {output_path}")
+
 
 
 
@@ -236,9 +248,9 @@ def main():
     if cleanup:
         cleanup_files(conn, output_dir, assistant_id)
 
-    image_data, document = extract_images_from_docx(file_path)
-    save_images_to_disk(image_data, output_dir)
-    insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
+    # image_data, document = extract_images_from_docx(file_path)
+    # save_images_to_disk(image_data, output_dir)
+    # insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
 
     if updateAiDescription:
         # replace_images_with_text(file_path, f"{os.path.splitext(file_path)[0]}_without_images.docx", conn)
