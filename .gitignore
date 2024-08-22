@@ -131,7 +131,8 @@ dist
 
 .venv/
 src/docx/imgsSmart/
-images_assistant.db
+images_assistant.*
+images_assistant.db-journal
 images/
 temp_image.png
 tempImages/

@@ -9,6 +9,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 import base64
 from xml.etree import ElementTree as ET
 from openai import OpenAI
+from io import BytesIO
 
 IMAGE_DIR = './tempImages/'
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getTempImage'
@@ -21,37 +22,28 @@ def sanitize_filename(text):
     text = re.sub(r'[-\s]+', '_', text)
     return text
 
-def get_image_description( image_name):
+def get_image_description(image_name):
     try:
         image_url = f"{SERVER_URL}/{image_name}"
-        user_prompt = "pelase, make a short description of this image in portuguese-br. it will be used on a documentation to be used by an gpt assistant"
-        system_prompt  = (
-            "Please try to generate the text for an user manual documentation based on and assistat."
-        )
+        user_prompt = "Por favor, faça uma breve descrição desta imagem em português-br. Será usada em uma documentação para ser usada por um assistente GPT."
+        system_prompt = "Please try to generate the text for an user manual documentation based on an assistant."
         response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_prompt},
+            model="gpt-4o-mini",
+            messages=[
                 {
-                "type": "image_url",
-                "image_url": {
-                    "url": image_url
-                },
-                },
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
             ],
-            }
-        ],
-        max_tokens=300,
+            max_tokens=300,
         )
         return response.choices[0].message.content
     except Exception as error:
         print("Error processing image:", error)
         raise error
-
-
 
 def extract_images_from_docx(file_path):
     document = Document(file_path)
@@ -132,7 +124,7 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
     for img, img_title, img_caption in image_data:
         img_description = None
         if updateAiDescription:
-            img_description = get_image_description(  f'{img_caption}.png')
+            img_description = get_image_description(f'{img_caption}.png')
         cursor.execute('''
             INSERT INTO images (filename, title, description, assistant_id) VALUES (?, ?, ?, ?)
         ''', (f'{img_caption}.png', img_title, img_description, assistant_row_id))
@@ -166,6 +158,27 @@ def save_document_with_incremental_filename(document, file_path):
             print(f"Document saved as {new_file_path}")
             break
 
+def replace_images_with_text(doc_path, output_path):
+    doc = Document(doc_path)
+    new_doc = Document()
+    for paragraph in doc.paragraphs:
+        new_paragraph = new_doc.add_paragraph()
+        for run in paragraph.runs:
+            if run._element.xpath('.//w:drawing'):
+                inline_shapes = run._element.xpath('.//w:drawing')
+                for shape in inline_shapes:
+                    image_data = shape.xpath('.//a:blip/@r:embed')
+                    if image_data:
+                        image_part = doc.part.related_parts[image_data[0]]
+                        image_stream = BytesIO(image_part.blob)
+                        image_name = f"temp_image_{image_data[0]}.png"  # Generate a unique name
+                        description = get_image_description(image_name)
+                        new_paragraph.add_run(description)
+            else:
+                new_paragraph.add_run(run.text)
+    new_doc.save(output_path)
+    print(f"Images replaced with descriptions. New file saved as {output_path}")
+
 def main():
     if len(sys.argv) < 5:
         print("Usage: python extract_images.py <file_path> <output_dir> <assistant_id> <cleanup> <updateAiDescription>")
@@ -183,11 +196,16 @@ def main():
     
     image_data, document = extract_images_from_docx(file_path)
     save_images_to_disk(image_data, output_dir)
-    insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription )
+    insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
     
     if updateAiDescription:
         save_document_with_incremental_filename(document, file_path)
     
+    # Generate the second document with images replaced by descriptions
+    base_name, extension = os.path.splitext(file_path)
+    output_path = f"{base_name}_without_images{extension}"
+    replace_images_with_text(file_path, output_path)
+            
     conn.close()
 
 if __name__ == "__main__":
