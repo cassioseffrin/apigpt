@@ -10,18 +10,15 @@ import base64
 from xml.etree import ElementTree as ET
 from openai import OpenAI
 from io import BytesIO
-
 IMAGE_DIR = './tempImages/'
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getTempImage'
 client = OpenAI()
-
 def sanitize_filename(text):
     text = unicodedata.normalize('NFKD', text)
     text = text.encode('ascii', 'ignore').decode('ascii')
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     text = re.sub(r'[-\s]+', '_', text)
     return text
-
 def get_image_description(image_name):
     try:
         image_url = f"{SERVER_URL}/{image_name}"
@@ -44,7 +41,6 @@ def get_image_description(image_name):
     except Exception as error:
         print("Error processing image:", error)
         raise error
-
 def extract_images_from_docx(file_path):
     document = Document(file_path)
     image_data = []
@@ -75,33 +71,27 @@ def extract_images_from_docx(file_path):
                     filename = f'image_{embed_id}.png'
                     image_data.append((image, alt_text, filename))
     return image_data, document
-
 import xml.etree.ElementTree as ET
-
 def print_xml(element, message=""):
     print(f"{message}:\n{ET.tostring(element, encoding='unicode')}\n")
-
 def update_images_alt_text_with_description(doc_path, output_path, conn):
     doc = Document(doc_path)
     namespaces = {
         'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
         'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+        'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'
     }
-
     for shape in doc.inline_shapes:
         graphic = shape._inline.graphic
         if not graphic:
             continue
         graphic_xml = graphic.xml
         pic_element = ET.fromstring(graphic_xml)
-        
         cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
         if cNvPr_element is not None:
-            print_xml(cNvPr_element, "Before Update")
-            
+            print_xml(cNvPr_element, "before Update")
             existing_alt_text = cNvPr_element.get('descr', None) or cNvPr_element.get('name', None) or f'image_{shape._inline.graphic.graphicData.uri}'
-            
             blip_element = pic_element.find('.//a:blip', namespaces)
             if blip_element is not None:
                 embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
@@ -109,24 +99,13 @@ def update_images_alt_text_with_description(doc_path, output_path, conn):
                 description = get_description_from_db(conn, img_caption)
                 if description:
                     updated_alt_text = f"{existing_alt_text}\n\n{description}"
-                    
-                    # Directly manipulate the underlying XML tree
-                    cNvPr_element.attrib['descr'] = updated_alt_text
-                    cNvPr_element.attrib['name'] = updated_alt_text
-                    cNvPr_element.attrib['title'] = updated_alt_text
-
-                    # Print the XML after the update
+                    cNvPr_element.set('descr', updated_alt_text)
+                    cNvPr_element.set('name', updated_alt_text)
+                    cNvPr_element.set('title', updated_alt_text)
                     print_xml(cNvPr_element, "After Update")
-
-                    # Update the XML element in the shape
-                    shape._inline.graphic._element = pic_element
-
+        shape._inline.graphic._element = pic_element
     doc.save(output_path)
     print(f"Updated alt text with descriptions. New file: {output_path}")
-
-
-
-
 def save_images_to_disk(image_data, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -135,10 +114,8 @@ def save_images_to_disk(image_data, output_dir):
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
-
 def encode_images_to_base64(image_data):
     return [(img_caption, base64.b64encode(img).decode('utf-8')) for img, img_desc, img_caption in image_data]
-
 def setup_database(db_path):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -160,7 +137,6 @@ def setup_database(db_path):
     ''')
     conn.commit()
     return conn
-
 def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDescription):
     cursor = conn.cursor()
     cursor.execute('''
@@ -177,9 +153,7 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
         cursor.execute('''
             INSERT INTO images (filename, title, description, assistant_id) VALUES (?, ?, ?, ?)
         ''', (f'{img_caption}', img_title, img_description, assistant_row_id))
-        conn.commit() # comitando a cada registro, evitar perder tudo se der erro no meio
-    #conn.commit()
-
+        conn.commit() 
 def cleanup_files(conn, output_dir, assistant_id):
     cursor = conn.cursor()
     cursor.execute('''
@@ -198,9 +172,6 @@ def cleanup_files(conn, output_dir, assistant_id):
         WHERE assistant_id = (SELECT id FROM assistant WHERE assistantId = ?)
     ''', (assistant_id,))
     conn.commit()
-
- 
-
 def get_description_from_db(conn, img_caption):
     cursor = conn.cursor()
     cursor.execute('''
@@ -211,7 +182,6 @@ def get_description_from_db(conn, img_caption):
         return result[0]
     else:
         return "sem descricao"
-
 def replace_images_with_text(doc_path, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
@@ -231,13 +201,10 @@ def replace_images_with_text(doc_path, output_path, conn):
                 new_paragraph.add_run(run.text)
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
-
-
 def main():
     if len(sys.argv) < 5:
         print("Usage: python extract_images.py <file_path> <output_dir> <assistant_id> <cleanup> <updateAiDescription>")
         sys.exit(1)
-
     file_path = sys.argv[1]
     output_dir = sys.argv[2]
     assistant_id = sys.argv[3]
@@ -247,17 +214,11 @@ def main():
     conn = setup_database(db_path)
     if cleanup:
         cleanup_files(conn, output_dir, assistant_id)
-
-    # image_data, document = extract_images_from_docx(file_path)
-    # save_images_to_disk(image_data, output_dir)
-    # insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
-
+    image_data, document = extract_images_from_docx(file_path)
+    insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
     if updateAiDescription:
-        # replace_images_with_text(file_path, f"{os.path.splitext(file_path)[0]}_without_images.docx", conn)
+        replace_images_with_text(file_path, f"{os.path.splitext(file_path)[0]}_without_images.docx", conn)
         update_images_alt_text_with_description(file_path, f"{os.path.splitext(file_path)[0]}_updated_description.docx", conn)
- 
-
     conn.close()
-
 if __name__ == "__main__":
     main()
