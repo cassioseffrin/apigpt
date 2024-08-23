@@ -1,12 +1,17 @@
+ 
+from datetime import datetime
+import json
 from flask import Flask, jsonify, request, send_from_directory 
 import os
 import openai
 import sqlite3
 import base64
-from extract_images import extract_images_from_docx, encode_images_to_base64
+from extract_images_desc_inside_image import extract_images_from_docx, encode_images_to_base64
 from dotenv import load_dotenv
 import re
 from fuzzywuzzy import fuzz
+from openai import OpenAI
+client = OpenAI()
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
@@ -50,11 +55,11 @@ def chat():
         data = request.get_json()
         thread_id = data['threadId']
         message = data['message']
-        openai.beta.threads.messages.create(
-            thread_id=thread_id,
-            role='user',
-            content=message
-        )
+        # openai.beta.threads.messages.create(
+        #     thread_id=thread_id,
+        #     role='user',
+        #     content=message
+        # )
         response = continuar_conversar(thread_id, assistant_id, message)
         if response:
             image_references = []
@@ -107,7 +112,13 @@ def conversar(thread_id, assistant_id):
             return message_to_dict(message)  
     else:
         return None
-def continuar_conversar(thread_id, assistant_id, message):
+def get_delivery_date(order_id: str) -> datetime:
+    # Connect to the database
+    # conn = sqlite3.connect('ecommerce.db')
+    # cursor = conn.cursor()
+    # ...        
+    return datetime.now()   
+def continuar_conversar_old(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,  
         role='user',
@@ -124,6 +135,147 @@ def continuar_conversar(thread_id, assistant_id, message):
             print(last_message)
             return message_to_dict(last_message)  
     return None
+def continuar_conversar(thread_id, assistant_id, message):
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_delivery_date",
+                "description": "Get the delivery date for a customer's order. Call this whenever you need to know the delivery date, for example when a customer asks 'Where is my package'",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "order_id": {
+                            "type": "string",
+                            "description": "The customer's order ID."
+                        }
+                    },
+                    "required": ["order_id"],
+                    "additionalProperties": False
+                }
+            }
+        }
+    ]
+    messages = []
+    messages.append({"role": "system", "content": "You are a helpful customer support assistant. Use the supplied tools to assist the user."})
+    messages.append({"role": "user", "content": "Hi, can you tell me the delivery date for my order?"})
+    messages.append({"role": "assistant", "content": "Hi there! I can help with that. Can you please provide your order ID?"})
+    messages.append({"role": "user", "content": "i think it is order_12345"})
+
+    response = client.chat.completions.create(
+        model='gpt-4o',
+        messages=messages,
+        tools=tools
+    )
+    print(response)
+
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    arguments = json.loads(tool_call.function.arguments)
+    # tool_call.function.arguments
+    order_id = arguments.get('order_id')
+
+    # Call the get_delivery_date function with the extracted order_id
+    delivery_date = get_delivery_date(order_id)
+
+    # delivery_date = "datetime.now()"
+    data = delivery_date.strftime('%Y-%m-%d %H:%M:%S')
+
+    print(delivery_date)
+
+    function_call_result_message = {
+        "role": "tool",
+        "content": json.dumps({
+            "order_id": order_id,
+            "delivery_date": data
+        }),
+        "tool_call_id": response.choices[0].message.tool_calls[0].id
+    }
+
+    print(function_call_result_message)
+ 
+    completion_payload = {
+        "model": "gpt-4o",
+        "messages": [
+            {"role": "system", "content": "You are a helpful customer support assistant. Use the supplied tools to assist the user."},
+            {"role": "user", "content": "Hi, can you tell me the delivery date for my order?"},
+            {"role": "assistant", "content": "Hi there! I can help with that. Can you please provide your order ID?"},
+            {"role": "user", "content": "i think it is order_12345"},
+            response.choices[0].message,
+            function_call_result_message
+        ]
+    }
+
+
+    response = openai.chat.completions.create(
+        model=completion_payload["model"],
+        messages=completion_payload["messages"]
+    )
+
+    print(response.choices[0].message)
+
+    msg = response.choices[0].message
+    
+    # return message_to_dict(response.choices[0].message)
+    return {
+        'id': response.id,
+        'role': 'assistant',
+        'content': [msg.content],
+        'created_at': response.created,
+        'thread_id': thread_id
+    }
+
+    # # Check if the conversation was too long for the context window
+    # if response['choices'][0]['message']['finish_reason'] == "length":
+    #     print("Error: The conversation was too long for the context window.")
+    #     # Handle the error as needed, e.g., by truncating the conversation or asking for clarification
+    #     handle_length_error(response)
+        
+    # # Check if the model's output included copyright material (or similar)
+    # if response['choices'][0]['message']['finish_reason'] == "content_filter":
+    #     print("Error: The content was filtered due to policy violations.")
+    #     # Handle the error as needed, e.g., by modifying the request or notifying the user
+    #     handle_content_filter_error(response)
+        
+    # # Check if the model has made a tool_call. This is the case either if the "finish_reason" is "tool_calls" or if the "finish_reason" is "stop" and our API request had forced a function call
+    # if (response['choices'][0]['message']['finish_reason'] == "tool_calls" or 
+    #     # This handles the edge case where if we forced the model to call one of our functions, the finish_reason will actually be "stop" instead of "tool_calls"
+    #     (our_api_request_forced_a_tool_call and response['choices'][0]['message']['finish_reason'] == "stop")):
+    #     # Handle tool call
+    #     print("Model made a tool call.")
+    #     # Your code to handle tool calls
+    #     handle_tool_call(response)
+        
+    # # Else finish_reason is "stop", in which case the model was just responding directly to the user
+    # elif response['choices'][0]['message']['finish_reason'] == "stop":
+    #     # Handle the normal stop case
+    #     print("Model responded directly to the user.")
+    #     # Your code to handle normal responses
+    #     handle_normal_response(response)
+        
+    # # Catch any other case, this is unexpected
+    # else:
+    #     print("Unexpected finish_reason:", response['choices'][0]['message']['finish_reason'])
+    #     # Handle unexpected cases as needed
+    #     handle_unexpected_case(response)
+
+
+
+    # run = openai.beta.threads.runs.create_and_poll(
+    #     thread_id=thread_id,
+    #     assistant_id=assistant_id
+    # )
+
+    # if run.status == 'completed':
+    #     messages = openai.beta.threads.messages.list(thread_id)
+    #     if messages:
+    #         last_message = messages.data[0]  # Get the last message from the thread
+    #         print(last_message)
+    #         return message_to_dict(last_message)  # Convert the message to a dictionary format similar to continuar_conversar
+    return None
+
+
+
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
@@ -228,7 +380,7 @@ def get_temp_image(filename):
     # image_directory = '/Users/programacao/dev/gpt/tempImages'
     image_directory = '/Users/programacao/dev/gpt/src/docx/imgsSmart'
     try:
-        return send_from_directory(image_directory, filename, mimetype='image/png')  # Ensure correct MIME type
+        return send_from_directory(image_directory, filename, mimetype='image/png')  
     except FileNotFoundError:
         return "Image not found", 404
 # @app.route('/api/getTempImage')
@@ -238,6 +390,5 @@ def get_temp_image(filename):
 #         return send_from_directory(image_directory, filename)
 #     except FileNotFoundError:
 #         return "Image not found", 404
-        
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4014)
