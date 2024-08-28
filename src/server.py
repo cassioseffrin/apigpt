@@ -11,33 +11,14 @@ import re
 from fuzzywuzzy import fuzz
 from openai import OpenAI
 client = OpenAI()
+from sentence_transformers import SentenceTransformer, util
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
 import openai
 from Levenshtein import distance as levenshtein_distance
-# Function to query the SQLite database with fuzzy matching
-def get_best_match_filename(user_input, db_path='images_assistant.db'):
-    connection = sqlite3.connect(db_path)
-    cursor = connection.cursor()
-    # Retrieve all titles and descriptions from the database
-    query = "SELECT filename, title, description FROM images"
-    cursor.execute(query)
-    results = cursor.fetchall()
-    connection.close()
-    # Initialize best match variables
-    best_match_filename = None
-    best_match_score = float('inf')
-    # Use GPT to analyze each record and find the best match
-    for filename, title, description in results:
-        # Calculate similarity score using Levenshtein distance (you can also use GPT for semantic analysis)
-        title_distance = levenshtein_distance(user_input, title)
-        description_distance = levenshtein_distance(user_input, description)
-        match_score = min(title_distance, description_distance)
-        if match_score < best_match_score:
-            best_match_score = match_score
-            best_match_filename = filename
-    return best_match_filename
  
  
 def create_new_thread_and_talk(message):
@@ -161,92 +142,89 @@ def continuar_conversar_old(thread_id, assistant_id, message):
             return message_to_dict(last_message)  
     return None
 import json
-def continuar_conversar(thread_id, assistant_id, message):
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_image",
-                "description": "get the image of documentation on assistant vector store images.json. Call this whenever the user have somehow mention the image based on description on the vector store images.json.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "filename": {
-                            "type": "string",
-                            "description": "the image filename"
-                        }
-                    },
-                    "required": ["filename"],
-                    "additionalProperties": False
-                }
-            }
-        }
-    ]
-    messages = []
-    # messages.append({"role": "system", "content": "You are a helpful customer support assistant. please look into Vector store for Smart forca de vendas if the user prompt has any relation with title or description of Vector store images.json, and then please return the property filename of the vector store images.json and then supplied on tools to assist the user."})
-    messages.append({"role": "system", "content": "You are a helpful customer support assistant. Please look into Vector store for Smart Força de Vendas images. If the user prompt has any relation with the title or description in the Vector store images.json, return the exact filename provided in images.json."})
-    messages.append({"role": "user", "content": message})
-    response = client.chat.completions.create(
-        model='gpt-4o',
-        messages=messages,
-        tools=tools
+
+def gpt_similarity_gpt(text1, text2):
+    response = openai.Completion.create(
+        engine="gpt-4",
+        prompt=f"Calculate similarity between '{text1}' and '{text2}' on a scale from 0 to 1.",
+        max_tokens=10,
+        temperature=0
     )
-    tool_call = response.choices[0].message.tool_calls 
-    if tool_call:
-        arguments = json.loads(tool_call[0].function.arguments)
-        filename = arguments.get('filename')
-        if filename:
-            delivery_date = get_delivery_date(filename)
-            data = delivery_date.strftime('%Y-%m-%d %H:%M:%S')
-            print(delivery_date)
-            function_call_result_message = {
-                "role": "tool",
-                "content": json.dumps({
-                    "filename": filename,
-                    "delivery_date": data
-                }),
-                "tool_call_id": tool_call[0].id
-            }
-            print(function_call_result_message)
-            completion_payload = {
-                "model": "gpt-4o",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful customer support assistant. Use the supplied tools to assist the user."},
-                    {"role": "user", "content": "Hi, can you tell me the delivery date for my order?"},
-                    {"role": "assistant", "content": "Hi there! I can help with that. Can you please provide your order ID?"},
-                    {"role": "user", "content": "I think it is order_12345"},
-                    response.choices[0].message,
-                    function_call_result_message
-                ]
-            }
-            response = openai.chat.completions.create(
-                model=completion_payload["model"],
-                messages=completion_payload["messages"]
-            )
-            msg = response.choices[0].message
-            return {
-                'id': response.id,
-                'role': 'assistant',
-                'content': [msg.content],
-                'created_at': response.created,
-                'thread_id': thread_id
-            }
+    similarity_score = float(response.choices[0].text.strip())
+    return 1 - similarity_score  
+
+def gpt_similarity(text1, text2):
+    # Generate embeddings for both texts
+    embeddings = model.encode([text1, text2], convert_to_tensor=True)
+    # Compute cosine similarity
+    cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
+    # Convert cosine similarity to a distance-like score
+    similarity_score = cosine_scores.item()
+    return 1 - similarity_score  
+
+
+def get_best_match_filename(user_input, db_path='images_assistant.db', relevance_threshold=0.7):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    query = "SELECT filename, title, description FROM images"
+    cursor.execute(query)
+    results = cursor.fetchall()
+    connection.close()
+
+    # Initialize best match variables
+    best_match_filename = None
+    best_match_score = float('inf')
+
+    # Use GPT to analyze each record and find the best match
+    for filename, title, description in results:
+        # Calculate similarity score using GPT for semantic analysis
+        match_score = max(
+            gpt_similarity(user_input, title), 
+            gpt_similarity(user_input, description)
+        )
+        
+        if match_score < best_match_score:
+            best_match_score = match_score
+            best_match_filename = filename
+
+    # Check if the best match is relevant enough
+    if best_match_score > relevance_threshold:
+        return best_match_filename
+    return None
+def continuar_conversar(thread_id, assistant_id, message):
+    best_filename = get_best_match_filename(message)
+    
+    if best_filename:
+        image_url = f"https://assistant.arpasistemas.com.br/api/images/{best_filename}"
+        assistant_message = f"Encontrei este print no manual: [Clique aqui para ver]({image_url})"
+    else:
+        assistant_message = None
+
+    # Proceed with the usual flow
     openai.beta.threads.messages.create(
-        thread_id=thread_id,  
+        thread_id=thread_id,
         role='user',
         content=message
     )
     run = openai.beta.threads.runs.create_and_poll(
-        thread_id=thread_id,  
+        thread_id=thread_id,
         assistant_id=assistant_id
     )
+    
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
-            last_message = messages.data[0]  
-            print(last_message)
-            return message_to_dict(last_message)  
-    return None 
+            last_message = messages.data[0]
+            
+            if assistant_message:
+                last_message_content = f"{last_message.content[0].text.value} \n\n{assistant_message}"
+                last_message.content[0].text.value = last_message_content
+            
+            return message_to_dict(last_message)
+    
+    return None
+
+
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
@@ -285,23 +263,6 @@ def get_images_base64(description):
             images_base64[image] = img_base64
     conn.close()
     return images_base64
-# def get_images_urls(description):
-#     db_path = 'images_assistant.db'
-#     conn = sqlite3.connect(db_path)
-#     cursor = conn.cursor()
-#     cursor.execute('''
-#         SELECT filename FROM images
-#         WHERE description LIKE ?
-#     ''', (f'%{description}%',))
-#     filenames = cursor.fetchall()
-#     images_urls = {}
-#     image_counter = 0
-#     for (filename,) in filenames:
-#         image_counter += 1
-#         image = f'image_{image_counter:04d}'
-#         images_urls[image] = f'/api/images/{filename}'
-#     conn.close()
-#     return images_urls
 def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'\W+', ' ', text)
@@ -348,18 +309,10 @@ def get_image(filename):
 # http://localhost:5000/api/getTempImage/temp_image_rId8.png    
 @app.route('/api/getTempImage/<filename>')
 def get_temp_image(filename):
-    # image_directory = '/Users/programacao/dev/gpt/tempImages'
     image_directory = '/Users/programacao/dev/gpt/src/docx/imgsSmart'
     try:
         return send_from_directory(image_directory, filename, mimetype='image/png')  
     except FileNotFoundError:
         return "Image not found", 404
-# @app.route('/api/getTempImage')
-# def get_temp_image(filename):
-#     image_directory = './mytempimageFileSaved/'
-#     try:
-#         return send_from_directory(image_directory, filename)
-#     except FileNotFoundError:
-#         return "Image not found", 404
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4014)

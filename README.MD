@@ -27,5 +27,10 @@ curl --request POST \
 }'
 
 
+pip install python-docx pillow openai
+pip install fuzzywuzzy python-Levenshtein
+pip install sentence-transformers
+pip install "numpy<2"      
+
 
  python3 extract_images.py "/home/arpa/apigpt/src/docx/smartv5.docx"  "/home/arpa/apigpt/src/docx/imgsSmart"  "asst_flN0aLfDHU2Mg35WVKz0XIk1"  "true" 

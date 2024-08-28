@@ -110,7 +110,7 @@ def save_images_to_disk(image_data, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     for i, (img, img_desc, img_caption) in enumerate(image_data):
-        img_path = os.path.join(output_dir, f'{img_caption}.png')
+        img_path = os.path.join(output_dir, f'{img_caption}')
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
@@ -149,7 +149,7 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
     for img, img_title, img_caption in image_data:
         img_description = None
         if updateAiDescription:
-            img_description = get_image_description(f'{img_caption}.png')
+            img_description = get_image_description(f'{img_caption}')
         cursor.execute('''
             INSERT INTO images (filename, title, description, assistant_id) VALUES (?, ?, ?, ?)
         ''', (f'{img_caption}', img_title, img_description, assistant_row_id))
