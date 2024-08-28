@@ -178,12 +178,12 @@ def get_best_match_filename(user_input, db_path='images_assistant.db', relevance
     # Use GPT to analyze each record and find the best match
     for filename, title, description in results:
         # Calculate similarity score using GPT for semantic analysis
-        match_score = gpt_similarity(user_input, title)
+        # match_score = gpt_similarity(user_input, title)
     
-        # match_score = max(
-        #     gpt_similarity(user_input, title), 
-        #     gpt_similarity(user_input, description)
-        # )
+        match_score = max(
+            gpt_similarity(user_input, title), 
+            gpt_similarity(user_input, description)
+        )
         
         if match_score > best_match_score:
             best_match_score = match_score
@@ -193,6 +193,7 @@ def get_best_match_filename(user_input, db_path='images_assistant.db', relevance
     if best_match_score > relevance_threshold:
         return best_match_filename
     return None
+
 def continuar_conversar(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
     
@@ -202,23 +203,62 @@ def continuar_conversar(thread_id, assistant_id, message):
     else:
         assistant_message = None
 
+    # Proceed with the usual flow
+    openai.beta.threads.messages.create(
+        thread_id=thread_id,
+        role='user',
+        content=message
+    )
+    # run = openai.beta.threads.runs.create_and_poll(
+    #     thread_id=thread_id,
+    #     assistant_id=assistant_id
+    # )
+
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+        additional_instructions='Responda no idioma português Brasil'
+    )
+    
+    if run.status == 'completed':
+        messages = openai.beta.threads.messages.list(thread_id)
+        if messages:
+            last_message = messages.data[0]
+            
+            if assistant_message:
+                last_message_content = f"{last_message.content[0].text.value} \n\n{assistant_message}"
+                last_message.content[0].text.value = last_message_content
+            
+            return message_to_dict(last_message)
+    
+    return None
+
+def continuar_conversar_v3(thread_id, assistant_id, message):
+    best_filename = get_best_match_filename(message)
+    
+    if best_filename:
+        image_url = f"https://assistant.arpasistemas.com.br/api/images/{best_filename}"
+        assistant_message = f"Encontrei este print no manual: [Clique aqui para ver]({image_url})"
+    else:
+        assistant_message = None
+
     messages = [
-        {"role": "system", "content": "You are a helpful customer support assistant. Please respond in Portuguese. If you dont find the answer in manual dont try to invent an random response"},
+        {"role": "system", "content": "Você é um assistente de suporte ao cliente prestativo. Responda no idioma português Brasil. Se você não encontrar a resposta no manual, não tente inventar uma resposta aleatória."},
         {"role": "user", "content": message}
     ]
 
     if assistant_message:
         messages.append({"role": "assistant", "content": assistant_message})
- 
 
     client.chat.completions.create(
-        model='gpt-4o',
+        model='gpt-4',
         messages=messages 
     )
 
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
-        assistant_id=assistant_id
+        assistant_id=assistant_id,
+          additional_instructions='Responda no idioma português Brasil'
     )
     
     if run.status == 'completed':
