@@ -160,7 +160,7 @@ def gpt_similarity(text1, text2):
     cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
     # Convert cosine similarity to a distance-like score
     similarity_score = cosine_scores.item()
-    return 1 - similarity_score  
+    return similarity_score  
 
 
 def get_best_match_filename(user_input, db_path='images_assistant.db', relevance_threshold=0.7):
@@ -173,17 +173,19 @@ def get_best_match_filename(user_input, db_path='images_assistant.db', relevance
 
     # Initialize best match variables
     best_match_filename = None
-    best_match_score = float('inf')
+    best_match_score = 0
 
     # Use GPT to analyze each record and find the best match
     for filename, title, description in results:
         # Calculate similarity score using GPT for semantic analysis
-        match_score = max(
-            gpt_similarity(user_input, title), 
-            gpt_similarity(user_input, description)
-        )
+        match_score = gpt_similarity(user_input, title)
+    
+        # match_score = max(
+        #     gpt_similarity(user_input, title), 
+        #     gpt_similarity(user_input, description)
+        # )
         
-        if match_score < best_match_score:
+        if match_score > best_match_score:
             best_match_score = match_score
             best_match_filename = filename
 
@@ -200,12 +202,20 @@ def continuar_conversar(thread_id, assistant_id, message):
     else:
         assistant_message = None
 
-    # Proceed with the usual flow
-    openai.beta.threads.messages.create(
-        thread_id=thread_id,
-        role='user',
-        content=message
+    messages = [
+        {"role": "system", "content": "You are a helpful customer support assistant. Please respond in Portuguese. If you dont find the answer in manual dont try to invent an random response"},
+        {"role": "user", "content": message}
+    ]
+
+    if assistant_message:
+        messages.append({"role": "assistant", "content": assistant_message})
+ 
+
+    client.chat.completions.create(
+        model='gpt-4o',
+        messages=messages 
     )
+
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id
@@ -224,6 +234,92 @@ def continuar_conversar(thread_id, assistant_id, message):
     
     return None
 
+def continuar_conversar_v2(thread_id, assistant_id, message):
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_image",
+                "description": "get the image of documentation on assistant vector store images.json. Call this whenever the user have somehow mention the image based on description on the vector store images.json.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {
+                            "type": "string",
+                            "description": "the image filename"
+                        }
+                    },
+                    "required": ["filename"],
+                    "additionalProperties": False
+                }
+            }
+        }
+    ]
+    messages = []
+    # messages.append({"role": "system", "content": "You are a helpful customer support assistant. please look into Vector store for Smart forca de vendas if the user prompt has any relation with title or description of Vector store images.json, and then please return the property filename of the vector store images.json and then supplied on tools to assist the user."})
+    messages.append({"role": "system", "content": "You are a helpful customer support assistant. Please look into Vector store for Smart Força de Vendas images. If the user prompt has any relation with the title or description in the Vector store images.json, return the exact filename provided in images.json."})
+    messages.append({"role": "user", "content": message})
+    response = client.chat.completions.create(
+        model='gpt-4o',
+        messages=messages,
+        tools=tools
+    )
+    tool_call = response.choices[0].message.tool_calls 
+    if tool_call:
+        arguments = json.loads(tool_call[0].function.arguments)
+        filename = arguments.get('filename')
+        if filename:
+            delivery_date = get_delivery_date(filename)
+            data = delivery_date.strftime('%Y-%m-%d %H:%M:%S')
+            print(delivery_date)
+            function_call_result_message = {
+                "role": "tool",
+                "content": json.dumps({
+                    "filename": filename,
+                    "delivery_date": data
+                }),
+                "tool_call_id": tool_call[0].id
+            }
+            print(function_call_result_message)
+            completion_payload = {
+                "model": "gpt-4o",
+                "messages": [
+                    {"role": "system", "content": "You are a helpful customer support assistant. Use the supplied tools to assist the user."},
+                    {"role": "user", "content": "Hi, can you tell me the delivery date for my order?"},
+                    {"role": "assistant", "content": "Hi there! I can help with that. Can you please provide your order ID?"},
+                    {"role": "user", "content": "I think it is order_12345"},
+                    response.choices[0].message,
+                    function_call_result_message
+                ]
+            }
+            response = openai.chat.completions.create(
+                model=completion_payload["model"],
+                messages=completion_payload["messages"]
+            )
+            msg = response.choices[0].message
+            return {
+                'id': response.id,
+                'role': 'assistant',
+                'content': [msg.content],
+                'created_at': response.created,
+                'thread_id': thread_id
+            }
+    openai.beta.threads.messages.create(
+        thread_id=thread_id,  
+        role='user',
+        content=message
+    )
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,  
+        assistant_id=assistant_id
+    )
+    if run.status == 'completed':
+        messages = openai.beta.threads.messages.list(thread_id)
+        if messages:
+            last_message = messages.data[0]  
+            print(last_message)
+            return message_to_dict(last_message)  
+    return None 
 
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
