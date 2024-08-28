@@ -12,15 +12,13 @@ from fuzzywuzzy import fuzz
 from openai import OpenAI
 client = OpenAI()
 from sentence_transformers import SentenceTransformer, util
-model = SentenceTransformer('all-MiniLM-L6-v2')
-
+# model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
 import openai
 from Levenshtein import distance as levenshtein_distance
- 
- 
 def create_new_thread_and_talk(message):
     thread = openai.beta.threads.create(
         messages=[
@@ -142,7 +140,6 @@ def continuar_conversar_old(thread_id, assistant_id, message):
             return message_to_dict(last_message)  
     return None
 import json
-
 def gpt_similarity_gpt(text1, text2):
     response = openai.Completion.create(
         engine="gpt-4",
@@ -152,57 +149,46 @@ def gpt_similarity_gpt(text1, text2):
     )
     similarity_score = float(response.choices[0].text.strip())
     return 1 - similarity_score  
-
-def gpt_similarity(text1, text2):
-    # Generate embeddings for both texts
-    embeddings = model.encode([text1, text2], convert_to_tensor=True)
-    # Compute cosine similarity
-    cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
-    # Convert cosine similarity to a distance-like score
-    similarity_score = cosine_scores.item()
-    return similarity_score  
-
-
-def get_best_match_filename(user_input, db_path='images_assistant.db', relevance_threshold=0.7):
+def get_best_match_filename(user_input, db_path='images_assistant.db', relevance_threshold=0.60):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
     query = "SELECT filename, title, description FROM images"
     cursor.execute(query)
     results = cursor.fetchall()
     connection.close()
-
-    # Initialize best match variables
     best_match_filename = None
+    best_match_title = None
     best_match_score = 0
-
-    # Use GPT to analyze each record and find the best match
+    loop = 0
+    print(f"entrada: {user_input}")   
     for filename, title, description in results:
-        # Calculate similarity score using GPT for semantic analysis
-        # match_score = gpt_similarity(user_input, title)
-    
         match_score = max(
             gpt_similarity(user_input, title), 
             gpt_similarity(user_input, description)
         )
-        
+        print(f"{loop}: {match_score}: {title}")     
+        loop += 1 
+ 
         if match_score > best_match_score:
             best_match_score = match_score
             best_match_filename = filename
-
-    # Check if the best match is relevant enough
+            best_match_title = title
+    print(f"Melhor score: {best_match_score}: {best_match_filename}: ")            
     if best_match_score > relevance_threshold:
         return best_match_filename
     return None
-
+def gpt_similarity(text1, text2):
+    embeddings = model.encode([text1, text2], convert_to_tensor=True)
+    cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
+    similarity_score = cosine_scores.item()
+    return similarity_score  
 def continuar_conversar(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
-    
     if best_filename:
         image_url = f"https://assistant.arpasistemas.com.br/api/images/{best_filename}"
         assistant_message = f"Encontrei este print no manual: [Clique aqui para ver]({image_url})"
     else:
         assistant_message = None
-
     # Proceed with the usual flow
     openai.beta.threads.messages.create(
         thread_id=thread_id,
@@ -213,67 +199,51 @@ def continuar_conversar(thread_id, assistant_id, message):
     #     thread_id=thread_id,
     #     assistant_id=assistant_id
     # )
-
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
         additional_instructions='Responda no idioma português Brasil'
     )
-    
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
             last_message = messages.data[0]
-            
             if assistant_message:
                 last_message_content = f"{last_message.content[0].text.value} \n\n{assistant_message}"
                 last_message.content[0].text.value = last_message_content
-            
             return message_to_dict(last_message)
-    
     return None
-
 def continuar_conversar_v3(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
-    
     if best_filename:
         image_url = f"https://assistant.arpasistemas.com.br/api/images/{best_filename}"
         assistant_message = f"Encontrei este print no manual: [Clique aqui para ver]({image_url})"
     else:
         assistant_message = None
-
     messages = [
         {"role": "system", "content": "Você é um assistente de suporte ao cliente prestativo. Responda no idioma português Brasil. Se você não encontrar a resposta no manual, não tente inventar uma resposta aleatória."},
         {"role": "user", "content": message}
     ]
-
     if assistant_message:
         messages.append({"role": "assistant", "content": assistant_message})
-
     client.chat.completions.create(
         model='gpt-4',
         messages=messages 
     )
-
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
           additional_instructions='Responda no idioma português Brasil'
     )
-    
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
             last_message = messages.data[0]
-            
             if assistant_message:
                 last_message_content = f"{last_message.content[0].text.value} \n\n{assistant_message}"
                 last_message.content[0].text.value = last_message_content
-            
             return message_to_dict(last_message)
-    
     return None
-
 def continuar_conversar_v2(thread_id, assistant_id, message):
     tools = [
         {
@@ -360,7 +330,6 @@ def continuar_conversar_v2(thread_id, assistant_id, message):
             print(last_message)
             return message_to_dict(last_message)  
     return None 
-
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
