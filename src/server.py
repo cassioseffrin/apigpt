@@ -14,6 +14,32 @@ client = OpenAI()
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
+import openai
+from Levenshtein import distance as levenshtein_distance
+# Function to query the SQLite database with fuzzy matching
+def get_best_match_filename(user_input, db_path='images_assistant.db'):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    # Retrieve all titles and descriptions from the database
+    query = "SELECT filename, title, description FROM images"
+    cursor.execute(query)
+    results = cursor.fetchall()
+    connection.close()
+    # Initialize best match variables
+    best_match_filename = None
+    best_match_score = float('inf')
+    # Use GPT to analyze each record and find the best match
+    for filename, title, description in results:
+        # Calculate similarity score using Levenshtein distance (you can also use GPT for semantic analysis)
+        title_distance = levenshtein_distance(user_input, title)
+        description_distance = levenshtein_distance(user_input, description)
+        match_score = min(title_distance, description_distance)
+        if match_score < best_match_score:
+            best_match_score = match_score
+            best_match_filename = filename
+    return best_match_filename
+ 
+ 
 def create_new_thread_and_talk(message):
     thread = openai.beta.threads.create(
         messages=[
@@ -135,14 +161,13 @@ def continuar_conversar_old(thread_id, assistant_id, message):
             return message_to_dict(last_message)  
     return None
 import json
-
 def continuar_conversar(thread_id, assistant_id, message):
     tools = [
         {
             "type": "function",
             "function": {
                 "name": "get_image",
-                "description": "get the image of documentation on assistant vector store images.json. Call this whenever the user have somehow mention the image based on description on the vector store images.json. For example when a customer asks 'me envie um print da tela de cadastrar cliente'",
+                "description": "get the image of documentation on assistant vector store images.json. Call this whenever the user have somehow mention the image based on description on the vector store images.json.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -158,28 +183,22 @@ def continuar_conversar(thread_id, assistant_id, message):
         }
     ]
     messages = []
-
     # messages.append({"role": "system", "content": "You are a helpful customer support assistant. please look into Vector store for Smart forca de vendas if the user prompt has any relation with title or description of Vector store images.json, and then please return the property filename of the vector store images.json and then supplied on tools to assist the user."})
     messages.append({"role": "system", "content": "You are a helpful customer support assistant. Please look into Vector store for Smart Força de Vendas images. If the user prompt has any relation with the title or description in the Vector store images.json, return the exact filename provided in images.json."})
     messages.append({"role": "user", "content": message})
-    
     response = client.chat.completions.create(
         model='gpt-4o',
         messages=messages,
         tools=tools
     )
-    
     tool_call = response.choices[0].message.tool_calls 
-    
     if tool_call:
         arguments = json.loads(tool_call[0].function.arguments)
         filename = arguments.get('filename')
-        
         if filename:
             delivery_date = get_delivery_date(filename)
             data = delivery_date.strftime('%Y-%m-%d %H:%M:%S')
             print(delivery_date)
-            
             function_call_result_message = {
                 "role": "tool",
                 "content": json.dumps({
@@ -189,7 +208,6 @@ def continuar_conversar(thread_id, assistant_id, message):
                 "tool_call_id": tool_call[0].id
             }
             print(function_call_result_message)
-            #  I think it is order_12345, could you estimate the delivery date?
             completion_payload = {
                 "model": "gpt-4o",
                 "messages": [
@@ -201,14 +219,11 @@ def continuar_conversar(thread_id, assistant_id, message):
                     function_call_result_message
                 ]
             }
-            
             response = openai.chat.completions.create(
                 model=completion_payload["model"],
                 messages=completion_payload["messages"]
             )
-            
             msg = response.choices[0].message
-            
             return {
                 'id': response.id,
                 'role': 'assistant',
@@ -216,28 +231,22 @@ def continuar_conversar(thread_id, assistant_id, message):
                 'created_at': response.created,
                 'thread_id': thread_id
             }
-    
-
     openai.beta.threads.messages.create(
         thread_id=thread_id,  
         role='user',
         content=message
     )
-    
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
         assistant_id=assistant_id
     )
-    
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
             last_message = messages.data[0]  
             print(last_message)
             return message_to_dict(last_message)  
-    
     return None 
-
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,  
