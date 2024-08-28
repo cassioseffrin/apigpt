@@ -111,7 +111,7 @@ def conversar(thread_id, assistant_id):
             return message_to_dict(message)  
     else:
         return None
-def get_delivery_date(order_id: str) -> datetime:
+def get_delivery_date(filename: str) -> datetime:
     # Connect to the database
     # conn = sqlite3.connect('ecommerce.db')
     # cursor = conn.cursor()
@@ -141,25 +141,26 @@ def continuar_conversar(thread_id, assistant_id, message):
         {
             "type": "function",
             "function": {
-                "name": "get_delivery_date",
-                "description": "Get the delivery date for a customer's order. Call this whenever you need to know the delivery date, for example when a customer asks 'Where is my package?'",
+                "name": "get_image",
+                "description": "get the image of documentation on assistant vector store images.json. Call this whenever the user have somehow mention the image based on description on the vector store images.json. For example when a customer asks 'me envie um print da tela de cadastrar cliente'",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "order_id": {
+                        "filename": {
                             "type": "string",
-                            "description": "The customer's order ID."
+                            "description": "the image filename"
                         }
                     },
-                    "required": ["order_id"],
+                    "required": ["filename"],
                     "additionalProperties": False
                 }
             }
         }
     ]
-    
     messages = []
-    messages.append({"role": "system", "content": "You are a helpful customer support assistant. Use the supplied tools to assist the user."})
+
+    # messages.append({"role": "system", "content": "You are a helpful customer support assistant. please look into Vector store for Smart forca de vendas if the user prompt has any relation with title or description of Vector store images.json, and then please return the property filename of the vector store images.json and then supplied on tools to assist the user."})
+    messages.append({"role": "system", "content": "You are a helpful customer support assistant. Please look into Vector store for Smart Força de Vendas images. If the user prompt has any relation with the title or description in the Vector store images.json, return the exact filename provided in images.json."})
     messages.append({"role": "user", "content": message})
     
     response = client.chat.completions.create(
@@ -172,17 +173,17 @@ def continuar_conversar(thread_id, assistant_id, message):
     
     if tool_call:
         arguments = json.loads(tool_call[0].function.arguments)
-        order_id = arguments.get('order_id')
+        filename = arguments.get('filename')
         
-        if order_id:
-            delivery_date = get_delivery_date(order_id)
+        if filename:
+            delivery_date = get_delivery_date(filename)
             data = delivery_date.strftime('%Y-%m-%d %H:%M:%S')
             print(delivery_date)
             
             function_call_result_message = {
                 "role": "tool",
                 "content": json.dumps({
-                    "order_id": order_id,
+                    "filename": filename,
                     "delivery_date": data
                 }),
                 "tool_call_id": tool_call[0].id
@@ -332,7 +333,7 @@ def get_images_urls(description, threshold=90, max_results=5):
 def get_image(filename):
     image_directory = './docx/imgsSmart/'
     try:
-        return send_from_directory(image_directory, filename)
+        return send_from_directory(image_directory, filename, mimetype='image/png')  
     except FileNotFoundError:
         return "Image not found", 404
 # http://localhost:5000/api/getTempImage/temp_image_rId8.png    
