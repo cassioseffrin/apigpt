@@ -74,14 +74,11 @@ def save_images_to_disk(image_data, output_dir):
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
-def add_image_description_to_docx(doc_path, output_path, conn, updateAiDescription):
+def add_image_description_to_docx(doc_path, output_path, conn):
     doc = Document(doc_path)
     image_data = extract_images_from_docx(doc)
     for image, alt_text, filename, shape in image_data:
-        if updateAiDescription:
-            description = get_description_from_db(conn, filename)
-        else:
-            description = alt_text
+        description = get_description_from_db(conn, filename)
         graphic = shape._inline.graphic
         graphic_xml = graphic.xml
         pic_element = ET.fromstring(graphic_xml)
@@ -97,7 +94,7 @@ def add_image_description_to_docx(doc_path, output_path, conn, updateAiDescripti
         parent_paragraph = shape._inline.getparent().getparent().getparent()
         parent_element = parent_paragraph.getparent()
         index = parent_element.index(parent_paragraph)
-        new_paragraph = doc.add_paragraph(description)
+        new_paragraph = doc.add_paragraph(f"{description} {filename}")
         parent_element.insert(index + 1, new_paragraph._element)
     doc.save(output_path)
     print(f"Images updated and descriptions added. New file: {output_path}")
@@ -136,6 +133,7 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
         img_description = None
         if updateAiDescription:
             img_description = get_image_description(f'{img_caption}')
+            # img_description += "filename: f{filename}"
         cursor.execute('''
             INSERT INTO images (filename, title, description, assistant_id) VALUES (?, ?, ?, ?)
         ''', (f'{img_caption}', img_title, img_description, assistant_row_id))
@@ -172,7 +170,7 @@ def replace_images_with_text(doc_path, output_path, conn):
                         embed_id = image_data[0]
                         img_caption = f'image_{embed_id}.png'
                         description = get_description_from_db(conn, img_caption)
-                        new_paragraph.add_run(description)
+                        new_paragraph.add_run(f"{description} {img_caption}")
             else:
                 new_paragraph.add_run(run.text)
     new_doc.save(output_path)
@@ -197,8 +195,8 @@ def main():
     output_path = f"{os.path.splitext(file_path)[0]}_updated_description.docx"
     output_path_without_images = f"{os.path.splitext(file_path)[0]}_without_images.docx"
     if updateAiDescription:
-        add_image_description_to_docx(file_path, output_path, conn, updateAiDescription)
-        replace_images_with_text(file_path, output_path_without_images, conn)
+        add_image_description_to_docx(file_path, output_path, conn)
+    replace_images_with_text(file_path, output_path_without_images, conn)
     conn.close()
 if __name__ == "__main__":
     main()

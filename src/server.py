@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import re
 from fuzzywuzzy import fuzz
 from openai import OpenAI
+import re
 client = OpenAI()
 from sentence_transformers import SentenceTransformer, util
 # model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -168,12 +169,11 @@ def get_best_match_filename(user_input, db_path='images_assistant.db', relevance
         )
         print(f"{loop}: {match_score}: {title}")     
         loop += 1 
- 
         if match_score > best_match_score:
             best_match_score = match_score
             best_match_filename = filename
             best_match_title = title
-    print(f"Melhor score: {best_match_score}: {best_match_filename}: ")            
+    print(f"Melhor score: {best_match_score}: {best_match_filename}: {best_match_title} ")            
     if best_match_score > relevance_threshold:
         return best_match_filename
     return None
@@ -182,23 +182,379 @@ def gpt_similarity(text1, text2):
     cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
     similarity_score = cosine_scores.item()
     return similarity_score  
+                                                                                                
+    # assistant = client.beta.assistants.create(
+    #     model="gpt-4-1106-preview",
+    #     name="VectorizedKnowledgeBot",
+    #     instructions=instructions,
+    #     tools=[{
+    #         "type": "function",
+    #         "function": {
+    #             "name": "get_images",
+    #             "description": "Perform a vector-based search to retrieve contextually relevant information based on a user's query.",
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {
+    #                     "query": {"type": "string", "description": "A targeted search string based on a user query."},
+    #                 },
+    #                 "required": ["query"]
+    #             }
+    #         },
+    #     }]
+    # )
+
+ 
+
+# Assuming vector_store_text is the content of the vector store file as a string
+vector_store_text = """
+MANUAL SAMRT FORÇA DE VENDAS APP
+INDICE
+APRESENTAÇÃO
+Este manual tem como finalidade demonstrar ao usuário o menu de pedidos do aplicativo Smart Vendas. Nele, será possível consultar pedidos já feitos, concluir pedidos que ainda estão pendentes de finalização, bem como, realizar um novo pedido.
+Configuração do aplicativo - Este manual tem como principal objetivo detalhar as configurações do aplicativo no momento que o mesmo for baixado no aparelho para que o usuário inicie o uso.
+Instalação dos módulos adicionais - Nesse manual, será explicado o processo para realizar a instalação dos serviços de módulos integrados ao Sistema Control. Vale lembrar que a instalação só deverá ser realizada se o Sistema Control já estiver em total funcionamento na máquina.
+LIBERAÇÃO DO APLICATIVO NO CONTROL DESKTOP - O Smart Sales Force trata-se de uma aplicação adicional ao Sistema Control, que permite a realização de vendas online e offline através de um smartphone. Para utilizar o Smart Sales Force, inicialmente é necessário realizar algumas configurações no sistema Control conforme será demonstrado neste manual de instruções.
+Manual de como efetuar o download do aplicativo em sistema Android
+para versões acima de 2022 - Este manual tem como finalidade demonstrar ao usuário como realizar o download do aplicativo Smart Sales Force dentro da loja de seu
+Smartphone com Sistema Android. Clientes que atualizarem o Sistema para a versão de 2022, terão os aplicativos atualizados pelas loja
+de seu smartphone de forma automática (a depender das configurações do aparelho e política da loja).
+Outro detalhe importante é que, em dado momento, o aplicativo irá atualizar automaticamente sozinho. Desta forma, assim que o
+aplicativo se atualizar, o cliente deverá obrigatoriamente atualizar o Sistema Control Desktop.
+Este manual tem como finalidade demonstrar ao usuário como realizar o download do aplicativo Smart Sales Force dentro da loja de seu Smartphone com sistema operacional IOS. Clientes que atualizarem o Sistema para a versão de 2022, terão os aplicativos atualizados pela loja de seu smartphone de forma automática (a depender das configurações do aparelho e política da loja).
+Outro detalhe importante é que, em dado momento, o aplicativo irá atualizar automaticamente sozinho. Desta forma, assim que o aplicativo se atualizar, o cliente deverá obrigatoriamente atualizar o Sistema Control Desktop.
+1. DOWNLOAD
+1.1 DOWNLOAD DO APLICATIVO EM SISTEMA ANDROIND 
+Para realizar o download do aplicativo Smat Sales Force o usuário deve localizar e acessar o aplicativo Play Store em seu aparelho, na próxima tele deve pressionar no menu pesquisar, conforme representado nas Figuras 01.
+Figura 01: Tela inicial
+A imagem mostra a interface da Google Play Store, na seção "Para você". No topo, estão destacados jogos como "Blood Strike", "Roblox" e "Tile Club". Abaixo, há uma lista de sugestões de jogos patrocinados, incluindo "Paciência", "Coin Master" e "Bubble Pop! Cannon Shooter", cada um acompanhado de informações de classificação e tamanho. Na parte inferior da tela, há ícones para navegar entre seções, incluindo "Jogos", "Apps", "Livros" e uma opção de "Pesquisar" destacada em vermelho. image_rId8.png
+Fonte: Aplicativo Play Store, 2024.
+O usuário deve digitar o nome do aplicativo Smat Sales Force e realizar a busca, na sequência deve pressionar sobre o ícone do aplicativo encontrado na pesquisa, conforme representado na Figura 02.
+Figura 02: Menu Pesquisar
+A imagem mostra uma tela de pesquisa na loja de aplicativos, onde o termo "smart sales force" está sendo utilizado. Os resultados incluem vários aplicativos, com destaque para "Smart Força de Vendas" da Arpa Sistemas, que possui uma classificação de 4,3 estrelas e 14 MB de tamanho, além de mais de mil downloads. Outros aplicativos listados incluem Salesforce, App Sales Force +, e Meta Sales Force, com diferentes classificações e tamanhos. A interface apresenta também um botão de instalação para os aplicativos. image_rId9.png
+Fonte: Aplicativo Play Store, 2024.
+Após efetuar o processo descrito acima, o operador será direcionado a outra tela, onde terá especificações referente ao aplicativo. Para baixá-lo, basta pressionar o botão Instalar e aguardar a finalização do download, conforme representado nas Figuras 03, 04 e 05.
+Figura 03: Instalar
+A imagem apresenta a interface do aplicativo "Smart Força de Vendas", desenvolvido pela Arpa Sistemas. Na parte superior, está o nome do aplicativo junto com a sua classificação de 4,2 estrelas, o número de avaliações (12) e o tamanho do aplicativo (14 MB). Abaixo, há uma chamada para ação para instalar o aplicativo. A imagem exibe também várias capturas de tela do aplicativo, mostrando suas funcionalidades. Há seções como "Sobre este app" e "Segurança dos dados" também apresentadas na parte inferior. Além disso, são visualizados ícones representando diferentes categorias como jogos, apps, e livros. image_rId10.png
+Fonte: Aplicativo Play Store, 2024.
+Figura 04: Instalando
+A arguments
+ "Smart Força de Vendas" em um dispositivo móvel. Acima, há um botão para cancelar ou abrir o aplicativo, além de um aviso indicando que ele é verificado pelo Play Protect. Abaixo, são apresentadas sugestões de aplicativos patrocinados, como "Nomad: Conta em Dólar e Cartão", "Livelo: juntar e trocar pontos" e "Estoque, Vendas, Pdv, Finanças", juntamente com mais opções de aplicativos para testar, incluindo "PictureThis Identificador Planta" e "CamScanner". A parte inferior da tela contém ícones de acesso a jogos, aplicativos, e livros. image_rId11.png
+Fonte: Aplicativo Play Store, 2024.
+"""
+
+def extract_image_filenames(text):
+    """Extract all image filenames from the vector store text."""
+    return re.findall(r'image_rId\d+\.png|image_rId\d+\.jpg', text)
+
+def match_query_with_vector_store(query, vector_store_text):
+    """Match the query with the vector store and return relevant image filenames."""
+    # Extract all image filenames from the vector store
+    image_filenames = extract_image_filenames(vector_store_text)
+    
+    # Check if the query matches any part of the vector store
+    matched_filenames = []
+    for line in vector_store_text.splitlines():
+        if query in line:
+            matched_filenames.extend(
+                filename for filename in image_filenames if filename in line
+            )
+    
+    return matched_filenames
+
+def continuar_conversar_v7_nao_funciona(thread_id, assistant_id, message):
+    openai.beta.threads.messages.create(
+        thread_id=thread_id,
+        role='user',
+        content=message
+    )
+    instructions = '''
+**You are the 'Vector store for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
+**Responda sempre no idioma português Brasil**
+**Instructions for Using the 'get_images' Tool:**
+1. **Understanding the Tool:**
+   - The "get_images" tool is designed to perform a contextually aware search based on vector store: smartv6_text.txt. It uses vector store content to extract the images inside vector store files.
+2. **Identifying the User Query:**
+   - Begin by identifying the user's query. Pay attention to the key concepts and specific details the user is interested in.
+3. **Formulating the Search String:**
+   - Based on the user's query, formulate a concise and targeted search string. Include the most important images based on the prompt context.
+4. **Using the Tool:**
+   - Pass the formulated search string to the "get_images" tool as an argument. The arguments must be a list of images present in the vector store, e.g., image_*.png or image_*.jpg must be included.
+- Pass the string to the tool: `get_images(images_filenames)`
+5. **Interpreting Results:**
+   - Once the "get_images" returns results, analyze the information to verify its relevance and accuracy in addressing the user's query.
+6. **Communicating the Outcome:**
+   - Present the findings from the "get_images" to the user in a clear and informative manner, summarizing the context or providing a direct answer to the query.
+**Example Usage:**
+If the user asks about "tem alguma imagem", you would:
+- Extract arguments from the vector store: smartv6_text.txt. All strings that have image_*.png or image_*.jpg must be included.
+- Pass the string to the tool: `get_images(arguments)`
+- Analyze and relay the information back to the user in response to their query.
+Remember to maintain the user's original intent in the search string and to ensure that the results from the "vector_get_image" are well-interpreted before conveying them to the user.
+'''
+
+    # Run the assistant's response generation with additional instructions
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+        additional_instructions=instructions,
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "get_images",
+                "description": "Perform a get_images search to retrieve image links based on input user prompt.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "array", "items": {"type": "string"}, "description": "A list of image filenames extracted from the vector store context."},
+                    },
+                    "required": ["query"]
+                }
+            },
+        }]
+    )
+
+    if run.status == "requires_action":
+        if run.required_action.submit_tool_outputs.tool_calls[0].type == 'function':
+            # Extract the relevant filenames from GPT's response
+            tool_function = run.required_action.submit_tool_outputs.tool_calls[0].function
+            function_name = getattr(tool_function, 'name')
+            arguments = getattr(tool_function, 'arguments')
+
+            # Call the get_images function with the extracted image filenames
+            result = get_images(arguments['query'])
+
+            # Submit the tool's output for further processing
+            run = openai.beta.threads.runs.submit_tool_outputs(
+                thread_id=thread_id,
+                run_id=run.id,
+                tool_outputs=[
+                    {
+                        "tool_call_id": run.required_action.submit_tool_outputs.tool_calls[0].id,
+                        "output": json.dumps(result),
+                    },
+                ]
+            )
+
+    if run.status == 'completed':
+        messages = openai.beta.threads.messages.list(thread_id)
+        if messages:
+            last_message = messages.data[0]
+            response_content = last_message.content[0]
+            return message_to_dict(response_content)
+    return None
+
+
+def continuar_conversar_v6_incompleto(thread_id, assistant_id, message):
+    openai.beta.threads.messages.create(
+        thread_id=thread_id,
+        role='user',
+        content=message
+    )
+    instructions = '''
+**You are the 'Vector store for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
+**Responda sempre no idioma português Brasil**
+**Instructions for Using the 'get_images' Tool:**
+1. **Understanding the Tool:**
+   - The "get_images" tool is designed to perform a contextually aware search based on vector store: smartv6_text.txt. It uses vector store content to extract the images inside vector store files.
+2. **Identifying the User Query:**
+   - Begin by identifying the user's query. Pay attention to the key concepts and specific details the user is interested in.
+3. **Formulating the Search String:**
+   - Based on the user's query, formulate a concise and targeted search string. Include the most important images based on the propmt context.
+4. **Using the Tool:**
+   - Pass the formulated search string to the "get_images" tool as an argument. the arguments must be a list of images present on the vector store, eg: image_*.png or image_*.jpg must be included
+- Pass the string to the tool: `get_images(images_filenames)`
+5. **Interpreting Results:**
+   - Once the "get_images" returns results, analyze the information to verify its relevance and accuracy in addressing the user's query.
+6. **Communicating the Outcome:**
+   - Present the findings from the "get_images" to the user in a clear and informative manner, summarizing the context or providing a direct answer to the query.
+**Example Usage:**
+If the user asks about "tem alguma imagem" you would:
+- Extract arguments from the vector store: smartv6_text.txt. All strings that have image_*.png or image_*.jpg must be included
+- Pass the string to the tool: `get_images(arguments)`
+- Analyze and relay the information back to the user in response to their query.
+Remember to maintain the user's original intent in the search string and to ensure that the results from the "vector_get_image" are well-interpreted before conveying them to the user.
+'''
+    # Run the assistant's response generation with additional instructions
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+        additional_instructions=instructions,
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "get_images",
+                "description": "Perform a get_images search to retrieve images links based on input user prompt.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "A targeted search string based on a user query."},
+                    },
+                    "required": ["query"]
+                }
+            },
+        }]
+        )
+    if run.status == "requires_action":
+        if run.required_action.submit_tool_outputs.tool_calls[0].type == 'function':
+            # Get the name of the tool and arguments to pass to it, from GPT4's understanding from our instructions
+            tool_function = run.required_action.submit_tool_outputs.tool_calls[0].function
+            function_name = getattr(tool_function, 'name')
+            arguments = getattr(tool_function, 'arguments')
+            # Now call the function from the tools dictionary using the function name
+            result = get_image(arguments)
+            # Pass the tool's output result for more processing
+            run = client.beta.threads.runs.submit_tool_outputs(
+                thread_id=thread_id,
+                run_id=run.id,
+                tool_outputs=[
+                    {
+                        "tool_call_id": run.required_action.submit_tool_outputs.tool_calls[0].id,
+                        "output": json.dumps(result),
+                    },
+                ]
+            )
+ 
+    if run.status == 'completed':
+        messages = openai.beta.threads.messages.list(thread_id)
+        if messages:
+            last_message = messages.data[0]
+            response_content = last_message.content[0]
+            return message_to_dict(response_content)
+    return None
 def continuar_conversar(thread_id, assistant_id, message):
+    openai.beta.threads.messages.create(
+        thread_id=thread_id,
+        role='user',
+        content=message
+    )
+
+    instructions = '''
+**You are the 'Vector store for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
+**Responda sempre no idioma português Brasil**
+
+**If the user asks about "tem alguma imagem" you would**
+- Extract arguments from the vector store file search: smartv6_text.txt
+- Always keep the image_filename in the response to user beside the citations annotation. eg: image_filename: (image_rId8.png)`
+- Analyze and relay the information back to the user in response to their query
+'''
+
+
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+        additional_instructions=instructions
+    )
+    if run.status == 'completed':
+        messages = openai.beta.threads.messages.list(thread_id)
+        if messages:
+            last_message = messages.data[0]
+            response_content = last_message.content[0]
+            # return message_to_dict(response_content)
+           
+         
+        
+            annotations =  response_content.text.annotations
+            citations = []
+            # Iterate over the annotations and add footnotes
+            for index, annotation in enumerate(annotations):
+                # Replace the text with a footnote
+                response_content.text.value = response_content.text.value.replace(annotation.text, f' [{index}]')
+                # Gather citations based on annotation attributes
+                if (file_citation := getattr(annotation, 'file_citation', None)):
+                    cited_file = client.files.retrieve(file_citation.file_id)
+                    # citations.append(f'[{index}] {file_citation.quote} from {cited_file.filename}')
+                elif (file_path := getattr(annotation, 'file_path', None)):
+                    cited_file = client.files.retrieve(file_path.file_id)
+                    # citations.append(f'[{index}] Click <here> to download {cited_file.filename}')
+                    # Note: File download functionality not implemented above for brevity
+            # Add footnotes to the end of the message before displaying to user
+            # response_content.value += '\n' + '\n'.join(citations)
+            # # Regex pattern to find references like  
+            # pattern = r'【(\d+:\d+)†source】'
+            # references = re.findall(pattern, response_content.text.value)
+            # # Replace each reference with a link to the image
+            # for ref in references:
+            #     # Assuming the image filenames are indexed by the reference number
+            #     # and that the file follows a certain naming convention.
+            #     # e.g., image_4_1.png for reference 4:1
+            #     ref_parts = ref.split(":")
+            #     image_filename = f"image_{ref_parts[0]}_{ref_parts[1]}.png"
+            #     image_url = f"https://assistant.arpasistemas.com.br/api/images/{image_filename}"
+            #     link_to_image = f'<a href="{image_url}">Clique aqui para ver a imagem correspondente</a>'
+            #     # Replace the reference with the hyperlink in the content
+            #     response_content = response_content.replace(f"【{ref}†source】", link_to_image)
+            # Update the last message with the modified content
+            # last_message['content'] = response_content
+            return message_to_dict(last_message)
+            # return message_to_dict(response_content)
+    return None
+# def continuar_conversar_v5_incompleto(thread_id, assistant_id, message):
+#     openai.beta.threads.messages.create(
+#         thread_id=thread_id,
+#         role='user',
+#         content=message
+#     )
+#     run = openai.beta.threads.runs.create_and_poll(
+#         thread_id=thread_id,
+#         assistant_id=assistant_id,
+#         additional_instructions=(
+#             'Responda no idioma português Brasil. '
+#             'Identifique e cite todas as imagens no texto usando um formato de referência numérico, '
+#             'como " " para cada referência a uma imagem. '
+#         )
+#     )
+#     if run.status == 'completed':
+#         messages = openai.beta.threads.messages.list(thread_id)
+#         if messages:
+#             last_message = messages.data[0]
+#             response_content = last_message.content[0]
+#             return message_to_dict(response_content)
+#             # response_content.text.annotationsresponse_content.text.annotations
+#             # annotations =  response_content.text.annotations
+#             # citations = []
+#             # # Iterate over the annotations and add footnotes
+#             # for index, annotation in enumerate(annotations):
+#             #     # Replace the text with a footnote
+#             #     response_content.text.value = response_content.text.value.replace(annotation.text, f' [{index}]')
+#             #     # Gather citations based on annotation attributes
+#             #     if (file_citation := getattr(annotation, 'file_citation', None)):
+#             #         cited_file = client.files.retrieve(file_citation.file_id)
+#             #         citations.append(f'[{index}] {file_citation.quote} from {cited_file.filename}')
+#             #     elif (file_path := getattr(annotation, 'file_path', None)):
+#             #         cited_file = client.files.retrieve(file_path.file_id)
+#             #         citations.append(f'[{index}] Click <here> to download {cited_file.filename}')
+#             #         # Note: File download functionality not implemented above for brevity
+#             # # Add footnotes to the end of the message before displaying to user
+#             # response_content.value += '\n' + '\n'.join(citations)
+#             # # Regex pattern to find references like  
+#             # pattern = r'【(\d+:\d+)†source】'
+#             # references = re.findall(pattern, response_content.text.value)
+#             # # Replace each reference with a link to the image
+#             # for ref in references:
+#             #     # Assuming the image filenames are indexed by the reference number
+#             #     # and that the file follows a certain naming convention.
+#             #     # e.g., image_4_1.png for reference 4:1
+#             #     ref_parts = ref.split(":")
+#             #     image_filename = f"image_{ref_parts[0]}_{ref_parts[1]}.png"
+#             #     image_url = f"https://assistant.arpasistemas.com.br/api/images/{image_filename}"
+#             #     link_to_image = f'<a href="{image_url}">Clique aqui para ver a imagem correspondente</a>'
+#             #     # Replace the reference with the hyperlink in the content
+#             #     response_content = response_content.replace(f"【{ref}†source】", link_to_image)
+#             # # Update the last message with the modified content
+#             # last_message['content'] = response_content
+#     return None
+def continuar_conversar_v4(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
     if best_filename:
         image_url = f"https://assistant.arpasistemas.com.br/api/images/{best_filename}"
         assistant_message = f"Encontrei este print no manual: [Clique aqui para ver]({image_url})"
     else:
         assistant_message = None
-    # Proceed with the usual flow
     openai.beta.threads.messages.create(
         thread_id=thread_id,
         role='user',
         content=message
     )
-    # run = openai.beta.threads.runs.create_and_poll(
-    #     thread_id=thread_id,
-    #     assistant_id=assistant_id
-    # )
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
