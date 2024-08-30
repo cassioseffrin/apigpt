@@ -5,7 +5,6 @@ import os
 import openai
 import sqlite3
 import base64
-from extract_images_desc_inside_image import extract_images_from_docx, encode_images_to_base64
 from dotenv import load_dotenv
 import re
 from fuzzywuzzy import fuzz
