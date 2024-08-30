@@ -11,6 +11,9 @@ from fuzzywuzzy import fuzz
 from openai import OpenAI
 import re
 client = OpenAI()
+from sentence_transformers import SentenceTransformer, util
+# model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
 base_url_img = "https://assistant.arpasistemas.com.br/api/images/"
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -174,6 +177,31 @@ def get_best_match_filename(user_input, db_path='images_assistant.db', relevance
     if best_match_score > relevance_threshold:
         return best_match_filename
     return None
+def gpt_similarity(text1, text2):
+    embeddings = model.encode([text1, text2], convert_to_tensor=True)
+    cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
+    similarity_score = cosine_scores.item()
+    return similarity_score  
+    # assistant = client.beta.assistants.create(
+    #     model="gpt-4-1106-preview",
+    #     name="VectorizedKnowledgeBot",
+    #     instructions=instructions,
+    #     tools=[{
+    #         "type": "function",
+    #         "function": {
+    #             "name": "get_images",
+    #             "description": "Perform a vector-based search to retrieve contextually relevant information based on a user's query.",
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {
+    #                     "query": {"type": "string", "description": "A targeted search string based on a user query."},
+    #                 },
+    #                 "required": ["query"]
+    #             }
+    #         },
+    #     }]
+    # )
+# Assuming vector_store_text is the content of the vector store file as a string
 vector_store_text = """
 MANUAL SAMRT FORÇA DE VENDAS APP
 INDICE
