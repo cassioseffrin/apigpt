@@ -65,7 +65,7 @@ def chat():
         #     role='user',
         #     content=message
         # )
-        response = continuar_conversar(thread_id, assistant_id, message)
+        response = continuar_conversar_v3(thread_id, assistant_id, message)
         # if response:
         #     image_references = []
         #     for content_block in response.get('content', []):

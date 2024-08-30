@@ -190,11 +190,12 @@ def replace_images_with_text(doc_path, output_path, conn):
                         new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({img_caption}), Descrição: ")
                         new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({img_caption})")
             else:
-                if (run.text.startswith("Figura") or run.text.startswith("Fonte: Aplicativo Play")):
+                if (run.text.startswith("Figura") or run.text.startswith("Fonte: Aplicativo")):
                     run.text=""
                     # filename = get_filename_from_title_db(conn, run.text)
                     # run.text = f"{paragraph.text} IMAGE_FILENAME: ({filename})"
-                new_paragraph.add_run(run.text)
+                else:
+                    new_paragraph.add_run(run.text)
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
  
@@ -253,9 +254,9 @@ def main():
     if cleanup:
         cleanup_files(conn, output_dir, assistant_id)
     doc = Document(file_path)
-    image_data = extract_images_from_docx(doc)
-    save_images_to_disk(image_data, output_dir)
-    insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
+    # image_data = extract_images_from_docx(doc)
+    # save_images_to_disk(image_data, output_dir)
+    # insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
     output_path = f"{os.path.splitext(file_path)[0]}_com_descricao.docx"
     output_path_without_images = f"{os.path.splitext(file_path)[0]}_vector_store.docx"
     if updateAiDescription:
