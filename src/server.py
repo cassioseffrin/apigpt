@@ -15,6 +15,7 @@ client = OpenAI()
 from sentence_transformers import SentenceTransformer, util
 # model = SentenceTransformer('all-MiniLM-L6-v2')
 model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
+base_url_img = "https://assistant.arpasistemas.com.br/api/images/"
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
@@ -66,19 +67,19 @@ def chat():
         #     content=message
         # )
         response = continuar_conversar(thread_id, assistant_id, message)
-        if response:
-            image_references = []
-            for content_block in response.get('content', []):
-                if 'source' in content_block:
-                    image_references.append(content_block)
-            if image_references:
-                url_images = {}
-                for ref in image_references:
-                    description = ref
-                    images_urls = get_images_urls(message)
-                    url_images.update(images_urls)
-                response['images'] = url_images
-        return jsonify(response), 200
+        # if response:
+        #     image_references = []
+        #     for content_block in response.get('content', []):
+        #         if 'source' in content_block:
+        #             image_references.append(content_block)
+        #     if image_references:
+        #         url_images = {}
+        #         for ref in image_references:
+        #             description = ref
+        #             images_urls = get_images_urls(message)
+        #             url_images.update(images_urls)
+        #         response['images'] = url_images
+        return json.dumps(response), 200
     except Exception as error:
         print(f"Error: {error}")
         return "Internal Server Error", 500
@@ -106,7 +107,7 @@ def conversar_nova_thread_bitrix(thread_id, assistant_id, message):
     )
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
-        return [message_to_dict(msg) for msg in messages]
+        return [message_to_json_response(msg) for msg in messages]
     else:
         return None
 def conversar(thread_id, assistant_id):
@@ -114,7 +115,7 @@ def conversar(thread_id, assistant_id):
     if messages:
         for message in messages:
             print(message)
-            return message_to_dict(message)  
+            return message_to_json_response(message)  
     else:
         return None
 def get_delivery_date(filename: str) -> datetime:
@@ -138,7 +139,7 @@ def continuar_conversar_old(thread_id, assistant_id, message):
         if messages:
             last_message = messages.data[0]  
             print(last_message)
-            return message_to_dict(last_message)  
+            return message_to_json_response(last_message)  
     return None
 import json
 def gpt_similarity_gpt(text1, text2):
@@ -182,7 +183,6 @@ def gpt_similarity(text1, text2):
     cosine_scores = util.pytorch_cos_sim(embeddings[0], embeddings[1])
     similarity_score = cosine_scores.item()
     return similarity_score  
-                                                                                                
     # assistant = client.beta.assistants.create(
     #     model="gpt-4-1106-preview",
     #     name="VectorizedKnowledgeBot",
@@ -202,9 +202,6 @@ def gpt_similarity(text1, text2):
     #         },
     #     }]
     # )
-
- 
-
 # Assuming vector_store_text is the content of the vector store file as a string
 vector_store_text = """
 MANUAL SAMRT FORÇA DE VENDAS APP
@@ -241,26 +238,9 @@ A arguments
  "Smart Força de Vendas" em um dispositivo móvel. Acima, há um botão para cancelar ou abrir o aplicativo, além de um aviso indicando que ele é verificado pelo Play Protect. Abaixo, são apresentadas sugestões de aplicativos patrocinados, como "Nomad: Conta em Dólar e Cartão", "Livelo: juntar e trocar pontos" e "Estoque, Vendas, Pdv, Finanças", juntamente com mais opções de aplicativos para testar, incluindo "PictureThis Identificador Planta" e "CamScanner". A parte inferior da tela contém ícones de acesso a jogos, aplicativos, e livros. image_rId11.png
 Fonte: Aplicativo Play Store, 2024.
 """
-
 def extract_image_filenames(text):
-    """Extract all image filenames from the vector store text."""
-    return re.findall(r'image_rId\d+\.png|image_rId\d+\.jpg', text)
-
-def match_query_with_vector_store(query, vector_store_text):
-    """Match the query with the vector store and return relevant image filenames."""
-    # Extract all image filenames from the vector store
-    image_filenames = extract_image_filenames(vector_store_text)
-    
-    # Check if the query matches any part of the vector store
-    matched_filenames = []
-    for line in vector_store_text.splitlines():
-        if query in line:
-            matched_filenames.extend(
-                filename for filename in image_filenames if filename in line
-            )
-    
-    return matched_filenames
-
+    """Extract all image filenames from the text."""
+    return re.findall(r'image_.*?\.(?:png|jpg)', text)
 def continuar_conversar_v7_nao_funciona(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,
@@ -291,8 +271,6 @@ If the user asks about "tem alguma imagem", you would:
 - Analyze and relay the information back to the user in response to their query.
 Remember to maintain the user's original intent in the search string and to ensure that the results from the "vector_get_image" are well-interpreted before conveying them to the user.
 '''
-
-    # Run the assistant's response generation with additional instructions
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
@@ -312,17 +290,14 @@ Remember to maintain the user's original intent in the search string and to ensu
             },
         }]
     )
-
     if run.status == "requires_action":
         if run.required_action.submit_tool_outputs.tool_calls[0].type == 'function':
             # Extract the relevant filenames from GPT's response
             tool_function = run.required_action.submit_tool_outputs.tool_calls[0].function
             function_name = getattr(tool_function, 'name')
             arguments = getattr(tool_function, 'arguments')
-
             # Call the get_images function with the extracted image filenames
             result = get_images(arguments['query'])
-
             # Submit the tool's output for further processing
             run = openai.beta.threads.runs.submit_tool_outputs(
                 thread_id=thread_id,
@@ -334,16 +309,13 @@ Remember to maintain the user's original intent in the search string and to ensu
                     },
                 ]
             )
-
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
             last_message = messages.data[0]
             response_content = last_message.content[0]
-            return message_to_dict(response_content)
+            return message_to_json_response(response_content)
     return None
-
-
 def continuar_conversar_v6_incompleto(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,
@@ -413,13 +385,12 @@ Remember to maintain the user's original intent in the search string and to ensu
                     },
                 ]
             )
- 
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
         if messages:
             last_message = messages.data[0]
             response_content = last_message.content[0]
-            return message_to_dict(response_content)
+            return message_to_json_response(response_content)
     return None
 def continuar_conversar(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
@@ -431,14 +402,12 @@ def continuar_conversar(thread_id, assistant_id, message):
     instructions = '''
 **You are the 'Vector store for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
 **Responda sempre no idioma português Brasil**
-
-**If the user asks about "tem alguma imagem" you would**
-- Extract arguments from the vector store file search: smartv6_text.txt
-- Always keep the image_filename in the response to user beside the citations annotation. eg: image_filename: (image_rId8.png)`
-- Analyze and relay the information back to the user in response to their query
+**If the user asks about "tem alguma imagem" ou "tem um print da tela" ou "tem uma foto" you would**
+- Extract arguments from the vector store file search
+- Always keep the image_filename in the response to user beside the citations annotation. eg: (image_rId8.png)
+- when you will compose the response to user never missmatch the image_filename with the IMAGE_FILENAME (image_rId8.png), always return the exact IMAGE_FILENAME to the user
+- If you don't find any image_filename in response to user, please don't make references of the vector store file search
 '''
-
-
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
@@ -449,100 +418,28 @@ def continuar_conversar(thread_id, assistant_id, message):
         if messages:
             last_message = messages.data[0]
             response_content = last_message.content[0]
-            # return message_to_dict(response_content)
-           
-         
-        
-            annotations =  response_content.text.annotations
-            citations = []
-            # Iterate over the annotations and add footnotes
-            for index, annotation in enumerate(annotations):
-                # Replace the text with a footnote
-                response_content.text.value = response_content.text.value.replace(annotation.text, f' [{index}]')
-                # Gather citations based on annotation attributes
-                if (file_citation := getattr(annotation, 'file_citation', None)):
-                    cited_file = client.files.retrieve(file_citation.file_id)
-                    # citations.append(f'[{index}] {file_citation.quote} from {cited_file.filename}')
-                elif (file_path := getattr(annotation, 'file_path', None)):
-                    cited_file = client.files.retrieve(file_path.file_id)
-                    # citations.append(f'[{index}] Click <here> to download {cited_file.filename}')
-                    # Note: File download functionality not implemented above for brevity
-            # Add footnotes to the end of the message before displaying to user
-            # response_content.value += '\n' + '\n'.join(citations)
-            # # Regex pattern to find references like  
-            # pattern = r'【(\d+:\d+)†source】'
-            # references = re.findall(pattern, response_content.text.value)
-            # # Replace each reference with a link to the image
-            # for ref in references:
-            #     # Assuming the image filenames are indexed by the reference number
-            #     # and that the file follows a certain naming convention.
-            #     # e.g., image_4_1.png for reference 4:1
-            #     ref_parts = ref.split(":")
-            #     image_filename = f"image_{ref_parts[0]}_{ref_parts[1]}.png"
-            #     image_url = f"https://assistant.arpasistemas.com.br/api/images/{image_filename}"
-            #     link_to_image = f'<a href="{image_url}">Clique aqui para ver a imagem correspondente</a>'
-            #     # Replace the reference with the hyperlink in the content
-            #     response_content = response_content.replace(f"【{ref}†source】", link_to_image)
-            # Update the last message with the modified content
-            # last_message['content'] = response_content
-            return message_to_dict(last_message)
-            # return message_to_dict(response_content)
+            links = []
+            arrayImg = extract_image_filenames(response_content.text.value)
+            for index, image_filename in enumerate(arrayImg):
+                image_url = f"{base_url_img}{image_filename}"
+                link_to_image = f'<a href="{image_url}">Imagem: {index+1}</a>'
+                links.append(link_to_image)
+
+            all_links = "\n".join(links)
+            if len(all_links)>0:
+                last_message_content = f"{last_message.content[0].text.value} \n\n{all_links}"
+                last_message.content[0].text.value = last_message_content
+                return message_to_json_response(last_message, arrayImg)
+            # annotations =  response_content.text.annotations
+            # citations = []
+            # for index, annotation in enumerate(annotations):
+            #     response_content.text.value = response_content.text.value.replace(annotation.text, f' [{index}]')
+            #     if (file_citation := getattr(annotation, 'file_citation', None)):
+            #         cited_file = client.files.retrieve(file_citation.file_id)
+            #     elif (file_path := getattr(annotation, 'file_path', None)):
+            #         cited_file = client.files.retrieve(file_path.file_id)
+            return message_to_json_response(last_message, arrayImg)
     return None
-# def continuar_conversar_v5_incompleto(thread_id, assistant_id, message):
-#     openai.beta.threads.messages.create(
-#         thread_id=thread_id,
-#         role='user',
-#         content=message
-#     )
-#     run = openai.beta.threads.runs.create_and_poll(
-#         thread_id=thread_id,
-#         assistant_id=assistant_id,
-#         additional_instructions=(
-#             'Responda no idioma português Brasil. '
-#             'Identifique e cite todas as imagens no texto usando um formato de referência numérico, '
-#             'como " " para cada referência a uma imagem. '
-#         )
-#     )
-#     if run.status == 'completed':
-#         messages = openai.beta.threads.messages.list(thread_id)
-#         if messages:
-#             last_message = messages.data[0]
-#             response_content = last_message.content[0]
-#             return message_to_dict(response_content)
-#             # response_content.text.annotationsresponse_content.text.annotations
-#             # annotations =  response_content.text.annotations
-#             # citations = []
-#             # # Iterate over the annotations and add footnotes
-#             # for index, annotation in enumerate(annotations):
-#             #     # Replace the text with a footnote
-#             #     response_content.text.value = response_content.text.value.replace(annotation.text, f' [{index}]')
-#             #     # Gather citations based on annotation attributes
-#             #     if (file_citation := getattr(annotation, 'file_citation', None)):
-#             #         cited_file = client.files.retrieve(file_citation.file_id)
-#             #         citations.append(f'[{index}] {file_citation.quote} from {cited_file.filename}')
-#             #     elif (file_path := getattr(annotation, 'file_path', None)):
-#             #         cited_file = client.files.retrieve(file_path.file_id)
-#             #         citations.append(f'[{index}] Click <here> to download {cited_file.filename}')
-#             #         # Note: File download functionality not implemented above for brevity
-#             # # Add footnotes to the end of the message before displaying to user
-#             # response_content.value += '\n' + '\n'.join(citations)
-#             # # Regex pattern to find references like  
-#             # pattern = r'【(\d+:\d+)†source】'
-#             # references = re.findall(pattern, response_content.text.value)
-#             # # Replace each reference with a link to the image
-#             # for ref in references:
-#             #     # Assuming the image filenames are indexed by the reference number
-#             #     # and that the file follows a certain naming convention.
-#             #     # e.g., image_4_1.png for reference 4:1
-#             #     ref_parts = ref.split(":")
-#             #     image_filename = f"image_{ref_parts[0]}_{ref_parts[1]}.png"
-#             #     image_url = f"https://assistant.arpasistemas.com.br/api/images/{image_filename}"
-#             #     link_to_image = f'<a href="{image_url}">Clique aqui para ver a imagem correspondente</a>'
-#             #     # Replace the reference with the hyperlink in the content
-#             #     response_content = response_content.replace(f"【{ref}†source】", link_to_image)
-#             # # Update the last message with the modified content
-#             # last_message['content'] = response_content
-#     return None
 def continuar_conversar_v4(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
     if best_filename:
@@ -567,7 +464,7 @@ def continuar_conversar_v4(thread_id, assistant_id, message):
             if assistant_message:
                 last_message_content = f"{last_message.content[0].text.value} \n\n{assistant_message}"
                 last_message.content[0].text.value = last_message_content
-            return message_to_dict(last_message)
+            return message_to_json_response(last_message)
     return None
 def continuar_conversar_v3(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
@@ -598,7 +495,7 @@ def continuar_conversar_v3(thread_id, assistant_id, message):
             if assistant_message:
                 last_message_content = f"{last_message.content[0].text.value} \n\n{assistant_message}"
                 last_message.content[0].text.value = last_message_content
-            return message_to_dict(last_message)
+            return message_to_json_response(last_message)
     return None
 def continuar_conversar_v2(thread_id, assistant_id, message):
     tools = [
@@ -684,7 +581,7 @@ def continuar_conversar_v2(thread_id, assistant_id, message):
         if messages:
             last_message = messages.data[0]  
             print(last_message)
-            return message_to_dict(last_message)  
+            return message_to_json_response(last_message)  
     return None 
 def process_messages(thread_id, assistant_id):
     run = openai.beta.threads.runs.create_and_poll(
@@ -695,9 +592,9 @@ def process_messages(thread_id, assistant_id):
     print(f"Processamento finalizado: {run.status}")
     if run.status == 'completed':
         messages = openai.beta.threads.messages.list(thread_id)
-        return [message_to_dict(message) for message in messages]
+        return [message_to_json_response(message) for message in messages]
     return None
-def message_to_dict(message):
+def message_to_json_response_text_only(message):
     return {
         'id': message.id,
         'role': message.role,
@@ -705,6 +602,22 @@ def message_to_dict(message):
         'created_at': message.created_at,
         'thread_id': message.thread_id
     }
+def message_to_json_response(message, arrayImg):
+    response = {
+        'id': message.id,
+        'role': message.role,
+        'content': [block.text.value for block in message.content],
+        'created_at': message.created_at,
+        'thread_id': message.thread_id
+    }
+    if len(arrayImg) > 0:
+        image_links = [
+            f'{base_url_img}{image_filename}'
+            # f'<a href="{base_url}{image_filename}">Clique aqui para ver a imagem correspondente</a>'
+            for image_filename in arrayImg
+        ]
+        response['images'] = image_links
+    return response
 def get_images_base64(description):
     db_path = 'images_assistant.db'
     conn = sqlite3.connect(db_path)
