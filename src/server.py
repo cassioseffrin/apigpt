@@ -644,18 +644,19 @@ def get_images_urls(description, threshold=90, max_results=5):
     conn.close()
     return images_json
 @app.route('/api/images/<filename>')
-def get_image(filename):
-    image_directory = './docx/imgsSmart/'
+def get_image(filepath,filename):    
+    completefilename =  filepath+"/"+filename
+    image_directory = './imgs/'
     try:
-        return send_from_directory(image_directory, filename, mimetype='image/png')  
+        return send_from_directory(image_directory, completefilename, mimetype='image/png')  
     except FileNotFoundError:
         return "Image not found", 404
 # http://localhost:5000/api/getTempImage/temp_image_rId8.png    
-@app.route('/api/getTempImage/<filename>')
-def get_temp_image(filename):
-    image_directory = '/Users/programacao/dev/gpt/src/docx/imgsSmart'
+@app.route('/api/getTempImage/<filepath>/<filename>')
+def get_temp_image(filepath,filename):    
+    completefilename =  filepath+"/"+filename
     try:
-        return send_from_directory(image_directory, filename, mimetype='image/png')  
+        return send_from_directory("./imgs/",completefilename , mimetype='image/png')  
     except FileNotFoundError:
         return "Image not found", 404
 if __name__ == '__main__':

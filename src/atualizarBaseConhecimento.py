@@ -5,6 +5,7 @@ from docx import Document
 from xml.etree import ElementTree as ET
 from openai import OpenAI
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getTempImage'
+# SERVER_DEV_URL = 'http://127.0.0.1:4014/api/getTempImage'
 client = OpenAI()
 def setup_database(db_path):
     conn = sqlite3.connect(db_path)
@@ -18,6 +19,7 @@ def setup_database(db_path):
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS images (
+            filepath TEXT NOT NULL,
             filename TEXT NOT NULL,
             title TEXT,
             description TEXT,
@@ -82,10 +84,13 @@ def extract_images_from_docx(document):
                     image_data.append((image, alt_text, filename, shape))
     return image_data
 def save_images_to_disk(image_data, output_dir):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+
+    completeFilePath = "./src/imgs/"+output_dir
+
+    if not os.path.exists(completeFilePath):
+        os.makedirs(completeFilePath)
     for i, (img, img_desc, img_caption, _) in enumerate(image_data):
-        img_path = os.path.join(output_dir, f'{img_caption}')
+        img_path = os.path.join(completeFilePath, f'{img_caption}')
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
@@ -113,9 +118,9 @@ def add_image_description_to_docx(doc_path, output_path, conn):
         parent_element.insert(index + 1, new_paragraph._element)
     doc.save(output_path)
     print(f"Images updated and descriptions added. New file: {output_path}")
-def get_image_description(image_name):
+def get_image_description(image_path, image_name):
     try:
-        image_url = f"{SERVER_URL}/{image_name}"
+        image_url = f"{SERVER_URL}/{image_path}/{image_name}"
         user_prompt = "Por favor, faça uma breve descrição desta imagem em português-br. Será usada em uma documentação para ser usada por um assistente GPT."
         system_prompt = "Please try to generate the text for an user manual documentation based on an assistant."
         response = client.chat.completions.create(
@@ -135,7 +140,7 @@ def get_image_description(image_name):
     except Exception as error:
         print("Error processing image:", error)
         raise error
-def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDescription):
+def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDescription, filepath):
     cursor = conn.cursor()
     cursor.execute('''
         INSERT OR IGNORE INTO assistant (name, assistantId) VALUES (?, ?)
@@ -147,32 +152,32 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
     for img, img_title, img_caption, _ in image_data:  
         img_description = None
         if updateAiDescription:
-            img_description = get_image_description(f'{img_caption}')
+            img_description = get_image_description(filepath, f'{img_caption}')
             # img_description += "filename: f{filename}"
         cursor.execute('''
-            INSERT INTO images (filename, title, description, assistant_id) VALUES (?, ?, ?, ?)
-        ''', (f'{img_caption}', img_title, img_description, assistant_row_id))
+            INSERT INTO images (filepath, filename, title, description, assistant_id) VALUES (?, ?, ?, ?, ?)
+        ''', (filepath, f'{img_caption}', img_title, img_description, assistant_row_id))
         conn.commit()  
-def cleanup_files(conn, output_dir, assistant_id):
+def cleanup_files(conn, filepath, assistant_id):
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT images.filename FROM images
-        JOIN assistant ON images.assistant_id = assistant.id
-        WHERE assistant.assistantId = ?
-    ''', (assistant_id,))
-    files_to_delete = cursor.fetchall()
-    for (filename,) in files_to_delete:
-        img_path = os.path.join(output_dir, filename)
-        if os.path.exists(img_path):
-            os.remove(img_path)
-            print(f'Deleted image {img_path}')
+    # cursor.execute('''
+    #     SELECT images.filename FROM images
+    #     JOIN assistant ON images.assistant_id = assistant.id
+    #     WHERE assistant.assistantId = ?
+    # ''', (assistant_id,))
+    # files_to_delete = cursor.fetchall()
+    # for (filename,) in files_to_delete:
+    #     img_path = os.path.join(filepath, filename)
+    #     if os.path.exists(img_path):
+    #         os.remove(img_path)
+    #         print(f'Deleted image {img_path}')
     cursor.execute('''
         DELETE FROM images
-        WHERE assistant_id = (SELECT id FROM assistant WHERE assistantId = ?)
-    ''', (assistant_id,))
+        WHERE assistant_id = (SELECT id FROM assistant WHERE assistantId = ? AND filepath = ? )
+    ''', (assistant_id, filepath))
     conn.commit()
 
-def replace_images_with_text(doc_path, output_path, conn):
+def replace_images_with_text_ignore_strings(doc_path, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
     for paragraph in doc.paragraphs:
@@ -196,6 +201,26 @@ def replace_images_with_text(doc_path, output_path, conn):
                     # run.text = f"{paragraph.text} IMAGE_FILENAME: ({filename})"
                 else:
                     new_paragraph.add_run(run.text)
+    new_doc.save(output_path)
+    print(f"Images replaced with descriptions. New file: {output_path}")
+def replace_images_with_text(doc_path, output_path, conn):
+    doc = Document(doc_path)
+    new_doc = Document()
+    for paragraph in doc.paragraphs:
+        new_paragraph = new_doc.add_paragraph()
+        for run in paragraph.runs:
+            if run._element.xpath('.//w:drawing'):
+                inline_shapes = run._element.xpath('.//w:drawing')
+                for shape in inline_shapes:
+                    image_data = shape.xpath('.//a:blip/@r:embed')
+                    if image_data:
+                        embed_id = image_data[0]
+                        img_caption = f'image_{embed_id}.png'
+                        # description = get_description_from_db(conn, img_caption)
+                        title, description = get_description_from_db(conn, img_caption)
+                        new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({img_caption}), Descrição: ")
+                        new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({img_caption})")
+          
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
  
@@ -245,18 +270,23 @@ def main():
         print("Usage: python extract_images.py <file_path> <output_dir> <assistant_id> <cleanup> <updateAiDescription>")
         sys.exit(1)
     file_path = sys.argv[1]
-    output_dir = sys.argv[2]
+    outputImgFilepath = sys.argv[2]
     assistant_id = sys.argv[3]
     cleanup = sys.argv[4].lower() == 'true'
     updateAiDescription = sys.argv[5].lower() == 'true'
     db_path = 'images_assistant.db'
     conn = setup_database(db_path)
-    if cleanup:
-        cleanup_files(conn, output_dir, assistant_id)
     doc = Document(file_path)
-    # image_data = extract_images_from_docx(doc)
-    # save_images_to_disk(image_data, output_dir)
-    # insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription)
+    image_data = extract_images_from_docx(doc)
+    save_images_to_disk(image_data, outputImgFilepath)
+    if cleanup:
+        cleanup_files(conn, outputImgFilepath, assistant_id)
+        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, outputImgFilepath)
+
+    if updateAiDescription:
+        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, outputImgFilepath)
+
+        
     output_path = f"{os.path.splitext(file_path)[0]}_com_descricao.docx"
     output_path_without_images = f"{os.path.splitext(file_path)[0]}_vector_store.docx"
     if updateAiDescription:
