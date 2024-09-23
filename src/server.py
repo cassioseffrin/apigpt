@@ -400,7 +400,7 @@ def continuar_conversar(thread_id, assistant_id, message):
 ** Se o usuário perguntar sobre "tem alguma imagem", "tem um print da tela" ou "tem uma foto da tela" você deve:
  - Sempre manter o image_filename na resposta ao usuário junto à anotação das citações, por exemplo: (smtv6_image_rId100.png ou gerv1_image_rId008.jpg ou gerv1_image_rId89.jpeg). Ou seja, todas as sequências image.png, image.jpg ou image.jpg, onde o * (asterisco) pode ser qualquer string.
  - Os nomes dos aquivos de imagens (png, jpg ou jpeg) serão precedidos pela string IMAGE_FILENAME. Ex:  IMAGE_FILENAME: (smtv6_image_rId100.png)
- - Caso você não achar nenhuma imagem na resposta procurar nao referenciar nada ao vector store.
+ - Ao encontrar referencias as imagens sempre confrontar com o vector store: sourceImages.json. A imagem deve estar com nomes coesos e integros presentes neste aquivo sourceImages.json
 EXEMPLOS: Procure fornecer as respostas com maximo de integridade e focadas nos manuais presentes no vector store.
 '''
 
