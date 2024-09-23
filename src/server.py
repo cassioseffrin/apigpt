@@ -17,6 +17,8 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
 import openai
 from Levenshtein import distance as levenshtein_distance
+import os
+from flask import send_from_directory
 def create_new_thread_and_talk(message):
     thread = openai.beta.threads.create(
         messages=[
@@ -138,7 +140,7 @@ def continuar_conversar_old(thread_id, assistant_id, message):
             return message_to_json_response(last_message)  
     return None
 import json
-def gpt_similarity_gpt(text1, text2):
+def gpt_similarity(text1, text2):
     response = openai.Completion.create(
         engine="gpt-4",
         prompt=f"Calculate similarity between '{text1}' and '{text2}' on a scale from 0 to 1.",
@@ -369,7 +371,6 @@ def continuar_conversar(thread_id, assistant_id, message):
         role='user',
         content=message
     )
-
     instructions = '''
 **You are the 'Vector store for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
 **Responda sempre no idioma português Brasil**
@@ -394,7 +395,6 @@ def continuar_conversar(thread_id, assistant_id, message):
                 image_url = f"{base_url_img}{image_filename}"
                 link_to_image = f'<a href="{image_url}">Imagem: {index+1}</a>'
                 links.append(link_to_image)
-
             all_links = "\n".join(links)
             if len(all_links)>0:
                 last_message_content = f"{last_message.content[0].text.value} \n\n{all_links}"
@@ -643,14 +643,40 @@ def get_images_urls(description, threshold=90, max_results=5):
         }
     conn.close()
     return images_json
-@app.route('/api/images/<filename>')
-def get_image(filepath,filename):    
-    completefilename =  filepath+"/"+filename
+import os
+from flask import send_from_directory, abort
+@app.route('/api/getImage/<filename>')
+def getImage(filename):    
+    filepath = filename.split('_')[0]
+    file_extension = os.path.splitext(filename)[1].lower()
+    completefilename = filepath + "/" + filename
     image_directory = './imgs/'
+    if file_extension == '.png':
+        mimetype = 'image/png'
+    elif file_extension in ['.jpg', '.jpeg']:
+        mimetype = 'image/jpeg'
+    else:
+        abort(415, description="Unsupported image type")
     try:
-        return send_from_directory(image_directory, completefilename, mimetype='image/png')  
+        return send_from_directory(image_directory, completefilename, mimetype=mimetype)
     except FileNotFoundError:
         return "Image not found", 404
+# @app.route('/api/getImage/<filename>')
+# def getImage(filename):    
+#     filepath = filename.split('_')[0]
+#     completefilename = filepath + "/" + filename
+#     image_directory = './imgs/'
+#     try:
+#         return send_from_directory(image_directory, completefilename, mimetype='image/png')  
+#     except FileNotFoundError:
+#         return "Image not found", 404
+# def get_image(filename):    
+#     completefilename =  filepath+"/"+filename
+#     image_directory = './imgs/'
+#     try:
+#         return send_from_directory(image_directory, completefilename, mimetype='image/png')  
+#     except FileNotFoundError:
+#         return "Image not found", 404
 # http://localhost:5000/api/getTempImage/temp_image_rId8.png    
 @app.route('/api/getTempImage/<filepath>/<filename>')
 def get_temp_image(filepath,filename):    

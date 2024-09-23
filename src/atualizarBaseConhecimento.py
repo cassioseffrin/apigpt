@@ -4,7 +4,7 @@ import sqlite3
 from docx import Document
 from xml.etree import ElementTree as ET
 from openai import OpenAI
-SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getTempImage'
+SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getImage'
 # SERVER_DEV_URL = 'http://127.0.0.1:4014/api/getTempImage'
 client = OpenAI()
 def setup_database(db_path):
@@ -83,14 +83,15 @@ def extract_images_from_docx(document):
                     filename = f'image_{embed_id}.png'
                     image_data.append((image, alt_text, filename, shape))
     return image_data
-def save_images_to_disk(image_data, output_dir):
+def save_images_to_disk(image_data, vectorStorePath):
 
-    completeFilePath = "./src/imgs/"+output_dir
+    completeFilePath = "./src/imgs/"+vectorStorePath
+
 
     if not os.path.exists(completeFilePath):
         os.makedirs(completeFilePath)
     for i, (img, img_desc, img_caption, _) in enumerate(image_data):
-        img_path = os.path.join(completeFilePath, f'{img_caption}')
+        img_path = os.path.join(completeFilePath, f'{vectorStorePath}_{img_caption}')
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
@@ -120,7 +121,8 @@ def add_image_description_to_docx(doc_path, output_path, conn):
     print(f"Images updated and descriptions added. New file: {output_path}")
 def get_image_description(image_path, image_name):
     try:
-        image_url = f"{SERVER_URL}/{image_path}/{image_name}"
+        image_url = f"{SERVER_URL}/{image_path}_{image_name}"
+        # Error processing image: Error code: 400 - {'error': {'message': "You uploaded an unsupported image. Please make sure your image is below 20 MB in size and is of one the following formats: ['png', 'jpeg', 'gif', 'webp'].", 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_image_format'}}
         user_prompt = "Por favor, faça uma breve descrição desta imagem em português-br. Será usada em uma documentação para ser usada por um assistente GPT."
         system_prompt = "Please try to generate the text for an user manual documentation based on an assistant."
         response = client.chat.completions.create(
@@ -156,7 +158,7 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
             # img_description += "filename: f{filename}"
         cursor.execute('''
             INSERT INTO images (filepath, filename, title, description, assistant_id) VALUES (?, ?, ?, ?, ?)
-        ''', (filepath, f'{img_caption}', img_title, img_description, assistant_row_id))
+        ''', (filepath, f'{filepath}_{img_caption}', img_title, img_description, assistant_row_id))
         conn.commit()  
 def cleanup_files(conn, filepath, assistant_id):
     cursor = conn.cursor()
@@ -267,31 +269,30 @@ def replace_images_with_text2(doc_path, output_path, conn):
 
 def main():
     if len(sys.argv) < 5:
-        print("Usage: python extract_images.py <file_path> <output_dir> <assistant_id> <cleanup> <updateAiDescription>")
+        print("Usage: python extract_images.py <vector_store_filename> <filepath> <assistant_id> <cleanup> <updateAiDescription>")
         sys.exit(1)
-    file_path = sys.argv[1]
-    outputImgFilepath = sys.argv[2]
+    vector_store_filename = sys.argv[1]
+    filepath = sys.argv[2]
     assistant_id = sys.argv[3]
     cleanup = sys.argv[4].lower() == 'true'
     updateAiDescription = sys.argv[5].lower() == 'true'
     db_path = 'images_assistant.db'
     conn = setup_database(db_path)
-    doc = Document(file_path)
+    doc = Document(vector_store_filename)
     image_data = extract_images_from_docx(doc)
-    save_images_to_disk(image_data, outputImgFilepath)
+    save_images_to_disk(image_data, filepath)
     if cleanup:
-        cleanup_files(conn, outputImgFilepath, assistant_id)
-        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, outputImgFilepath)
+        cleanup_files(conn, filepath, assistant_id)
+        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
 
     if updateAiDescription:
-        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, outputImgFilepath)
-
+        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
         
-    output_path = f"{os.path.splitext(file_path)[0]}_com_descricao.docx"
-    output_path_without_images = f"{os.path.splitext(file_path)[0]}_vector_store.docx"
+    output_path = f"{os.path.splitext(vector_store_filename)[0]}_com_descricao.docx"
+    output_path_without_images = f"{os.path.splitext(vector_store_filename)[0]}_vector_store.docx"
     if updateAiDescription:
-        add_image_description_to_docx(file_path, output_path, conn)
-    replace_images_with_text(file_path, output_path_without_images, conn)
+        add_image_description_to_docx(vector_store_filename, filepath, conn)
+    replace_images_with_text(vector_store_filename, output_path_without_images, conn)
     conn.close()
 if __name__ == "__main__":
     main()
