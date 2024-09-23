@@ -11,7 +11,8 @@ from fuzzywuzzy import fuzz
 from openai import OpenAI
 import re
 client = OpenAI()
-base_url_img = "https://assistant.arpasistemas.com.br/api/images/"
+# base_url_img = "https://assistant.arpasistemas.com.br/api/images/"
+base_url_img = "https://assistant.arpasistemas.com.br/api/getImage/"
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
@@ -211,9 +212,30 @@ A arguments
  "Smart Força de Vendas" em um dispositivo móvel. Acima, há um botão para cancelar ou abrir o aplicativo, além de um aviso indicando que ele é verificado pelo Play Protect. Abaixo, são apresentadas sugestões de aplicativos patrocinados, como "Nomad: Conta em Dólar e Cartão", "Livelo: juntar e trocar pontos" e "Estoque, Vendas, Pdv, Finanças", juntamente com mais opções de aplicativos para testar, incluindo "PictureThis Identificador Planta" e "CamScanner". A parte inferior da tela contém ícones de acesso a jogos, aplicativos, e livros. image_rId11.png
 Fonte: Aplicativo Play Store, 2024.
 """
+
+# I have this python function:
 def extract_image_filenames(text):
     """Extract all image filenames from the text."""
     return re.findall(r'image_.*?\.(?:png|jpg)', text)
+
+# based on this sample text:
+# 'Aqui está uma imagem que demonstra como fazer gerv1_image_rId008.jpeg o Check-in em um aplicativo de gerv1_image_rId009.jpg registro de visitas:\n\n- Figura 109: Opção "Fazer check-in" (Documento: smtv6_vector_store.docx) - ![Imagem](smtv6_image_rId119.png)\n\nNessa imagem, você pode ver a interface de um aplicativo móvel para registrar uma nova visita, onde o usuário deve pressionar sobre a opção "Fazer check-in" para comprovar que o vendedor esteve em visita no cliente.\n\nFonte:\n- Documento: smtv6_vector_store.docx'
+
+# could you fix this function to extract from the array  the follow results
+
+# smtv6_image_rId119.png
+# gerv1_image_rId008.jpeg
+# gerv1_image_rId010.jpg
+
+ 
+
+def extract_image_filenames(text):
+    """Extract all image filenames from the text."""
+    return re.findall(r'\b\w+_image_rId\d+\.(?:png|jpg|jpeg)\b', text)
+
+ 
+
+
 def continuar_conversar_v7_nao_funciona(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,
@@ -372,13 +394,16 @@ def continuar_conversar(thread_id, assistant_id, message):
         content=message
     )
     instructions = '''
-**You are the 'Vector store for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
-**Responda sempre no idioma português Brasil**
-**If the user asks about "tem alguma imagem" ou "tem um print da tela" ou "tem uma foto" you would**
-- Always keep the image_filename in the response to user beside the citations annotation. eg: (image_rId8.png)
-- when you will compose the response to user never missmatch the text Figura 01 with the IMAGE_FILENAME (image_rI01.png), the IMAGE_FILENAME is very important and cannot be composed from another sources, always return the exact IMAGE_FILENAME to the user
-- If you don't find any image_filename in response to user, please don't make references of the vector store file search
+**PERSONAGEM: Você é o 'Assistente virtual do Smart forca de vendas': Um Chatbot com a capacidade de realizar pesquisas avançadas baseadas em vetores para fornecer respostas contextualmente relevantes às consultas dos usuários.
+**INSTRUÇÕES: 
+ - Responda sempre no idioma português Brasil
+** Se o usuário perguntar sobre "tem alguma imagem", "tem um print da tela" ou "tem uma foto da tela" você deve:
+ - Sempre manter o image_filename na resposta ao usuário junto à anotação das citações, por exemplo: (smtv6_image_rId100.png ou gerv1_image_rId008.jpg ou gerv1_image_rId89.jpeg). Ou seja, todas as sequências image.png, image.jpg ou image.jpg, onde o * (asterisco) pode ser qualquer string.
+ - Os nomes dos aquivos de imagens (png, jpg ou jpeg) serão precedidos pela string IMAGE_FILENAME. Ex:  IMAGE_FILENAME: (smtv6_image_rId100.png)
+ - Caso você não achar nenhuma imagem na resposta procurar nao referenciar nada ao vector store.
+EXEMPLOS: Procure fornecer as respostas com maximo de integridade e focadas nos manuais presentes no vector store.
 '''
+
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,

@@ -13,8 +13,8 @@
       "console": "integratedTerminal",
       // "args": ["/Users/programacao/dev/gpt/src/docx/smartv6.docx", "/Users/programacao/dev/gpt/src/docx/imgsSmart", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "false", "false", "-b", "0.0.0.0:4014", "-t", "120", "app:app"],
       // "args": ["./src/docx/smartv6.docx", "smartv6", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "true", "false", "-b", "0.0.0.0:4014", "-t", "120", "app:app"],
-      "args": ["./src/docx/gerv1.docx", "gerv1", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "true", "true", "-b", "0.0.0.0:4014", "-t", "120", "app:app"],
-      // "args": ["./src/docx/smtv6.docx", "smtv6", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "true", "true", "-b", "0.0.0.0:4014", "-t", "120", "app:app"],
+      "args": ["./src/docx/gerv1.docx", "gerv1", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "false", "true", "-b", "0.0.0.0:4014", "-t", "120", "app:app"],
+      // "args": ["./src/docx/smtv6.docx", "smtv6", "asst_flN0aLfDHU2Mg35WVKz0XIk1", "false", "true", "-b", "0.0.0.0:4014", "-t", "120", "app:app"],
       "env": {
         "USE_WAITRESS": "1"
       }
