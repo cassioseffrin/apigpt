@@ -130,9 +130,8 @@ dist
 .pnp.*
 
 .venv/
-src/docx/imgsSmart/
-src/imgs/*
-src/imgsSmart/
+# src/docx/imgsSmart/
+# src/imgs/*
 # images_assistant.*
 images_assistant.db-journal
 images/
