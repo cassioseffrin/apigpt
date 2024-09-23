@@ -222,7 +222,9 @@ def replace_images_with_text(doc_path, output_path, conn):
                         title, description = get_description_from_db(conn, img_caption)
                         new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({img_caption}), Descrição: ")
                         new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({img_caption})")
-          
+                    else:
+                        new_paragraph.add_run(run.text)
+                        
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
  
@@ -283,15 +285,17 @@ def main():
     save_images_to_disk(image_data, filepath)
     if cleanup:
         cleanup_files(conn, filepath, assistant_id)
-        insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
+        if (updateAiDescription==False):
+            insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
 
     if updateAiDescription:
         insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
         
-    output_path = f"{os.path.splitext(vector_store_filename)[0]}_com_descricao.docx"
+    # output_path = f"{os.path.splitext(vector_store_filename)[0]}_com_descricao.docx"
     output_path_without_images = f"{os.path.splitext(vector_store_filename)[0]}_vector_store.docx"
     if updateAiDescription:
         add_image_description_to_docx(vector_store_filename, filepath, conn)
+
     replace_images_with_text(vector_store_filename, output_path_without_images, conn)
     conn.close()
 if __name__ == "__main__":
