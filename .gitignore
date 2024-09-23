@@ -133,7 +133,7 @@ dist
 src/docx/imgsSmart/
 src/imgs/*
 src/imgsSmart/
-images_assistant.*
+# images_assistant.*
 images_assistant.db-journal
 images/
 temp_image.png

@@ -52,7 +52,7 @@ def replace_images_with_text(doc_path):
                     if image_data:
                         image_part = doc.part.related_parts[image_data[0]]
                         image_stream = BytesIO(image_part.blob)
-                        image_name = f"temp_image_{image_data[0]}.png"  # Generate a unique name
+                        image_name = f"temp_image_{image_data[0]}.png"  
                         description = get_image_description(image_stream, image_name)
                         new_paragraph.add_run(description)
             else:

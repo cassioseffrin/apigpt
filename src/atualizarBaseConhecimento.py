@@ -29,7 +29,6 @@ def setup_database(db_path):
     ''')
     conn.commit()
     return conn
-
  
 def get_description_from_db(conn, img_caption):
     cursor = conn.cursor()
@@ -42,7 +41,6 @@ def get_description_from_db(conn, img_caption):
         return title, description
     else:
         return "sem titulo", "sem descricao"
-
 
 def get_filename_from_title_db(conn, title):
     cursor = conn.cursor()
@@ -84,10 +82,7 @@ def extract_images_from_docx(document):
                     image_data.append((image, alt_text, filename, shape))
     return image_data
 def save_images_to_disk(image_data, vectorStorePath):
-
     completeFilePath = "./src/imgs/"+vectorStorePath
-
-
     if not os.path.exists(completeFilePath):
         os.makedirs(completeFilePath)
     for i, (img, img_desc, img_caption, _) in enumerate(image_data):
@@ -95,6 +90,7 @@ def save_images_to_disk(image_data, vectorStorePath):
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
+
 def add_image_description_to_docx(doc_path, output_path, conn):
     doc = Document(doc_path)
     image_data = extract_images_from_docx(doc)
@@ -122,7 +118,6 @@ def add_image_description_to_docx(doc_path, output_path, conn):
 def get_image_description(image_path, image_name):
     try:
         image_url = f"{SERVER_URL}/{image_path}_{image_name}"
-        # Error processing image: Error code: 400 - {'error': {'message': "You uploaded an unsupported image. Please make sure your image is below 20 MB in size and is of one the following formats: ['png', 'jpeg', 'gif', 'webp'].", 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_image_format'}}
         user_prompt = "Por favor, faça uma breve descrição desta imagem em português-br. Será usada em uma documentação para ser usada por um assistente GPT."
         system_prompt = "Please try to generate the text for an user manual documentation based on an assistant."
         response = client.chat.completions.create(
@@ -179,7 +174,7 @@ def cleanup_files(conn, filepath, assistant_id):
     ''', (assistant_id, filepath))
     conn.commit()
 
-def replace_images_with_text_ignore_strings(doc_path, output_path, conn):
+def replace_images_with_text_ignore_strings(doc_path, filepath, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
     for paragraph in doc.paragraphs:
@@ -194,8 +189,8 @@ def replace_images_with_text_ignore_strings(doc_path, output_path, conn):
                         img_caption = f'image_{embed_id}.png'
                         # description = get_description_from_db(conn, img_caption)
                         title, description = get_description_from_db(conn, img_caption)
-                        new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({img_caption}), Descrição: ")
-                        new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({img_caption})")
+                        new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({filepath}_{img_caption}), Descrição: ")
+                        new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({filepath}_{img_caption})")
             else:
                 if (run.text.startswith("Figura") or run.text.startswith("Fonte: Aplicativo")):
                     run.text=""
@@ -205,7 +200,7 @@ def replace_images_with_text_ignore_strings(doc_path, output_path, conn):
                     new_paragraph.add_run(run.text)
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
-def replace_images_with_text(doc_path, output_path, conn):
+def replace_images_with_text(doc_path, filepath, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
     for paragraph in doc.paragraphs:
@@ -218,57 +213,16 @@ def replace_images_with_text(doc_path, output_path, conn):
                     if image_data:
                         embed_id = image_data[0]
                         img_caption = f'image_{embed_id}.png'
-                        # description = get_description_from_db(conn, img_caption)
-                        title, description = get_description_from_db(conn, img_caption)
-                        new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({img_caption}), Descrição: ")
-                        new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({img_caption})")
-                    else:
-                        new_paragraph.add_run(run.text)
-                        
+                        complete_filename=f"{filepath}_{img_caption}"
+                        title, description = get_description_from_db(conn, complete_filename)
+                        new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({complete_filename}), Descrição: ")
+                        new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({complete_filename})")
+            else:
+                new_paragraph.add_run(run.text)
+
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
- 
-
-
-
-def replace_images_with_text2(doc_path, output_path, conn):
-    doc = Document(doc_path)
-    # new_doc = Document()
-
-    figura_paragraphs = {}  # Dictionary to store "Figura*" paragraphs and their text
-
-    # First pass: Store paragraphs starting with "Figura*"
-    for i, paragraph in enumerate(doc.paragraphs):
-        if paragraph.text.startswith("Figura"):
-            paragraph.text = f"{paragraph.text} teste"
-
-    # Second pass: Process paragraphs and add text inline
-    # for i, paragraph in enumerate(doc.paragraphs):
-    #     new_paragraph = new_doc.add_paragraph()
-    #     if i in figura_paragraphs:
-    #         # Add the "Figura*" text
-    #         new_paragraph.add_run(f"{figura_paragraphs[i]}")
-        
-    #     for run in paragraph.runs:
-    #         if run._element.xpath('.//w:drawing'):
-    #             inline_shapes = run._element.xpath('.//w:drawing')
-    #             for shape in inline_shapes:
-    #                 image_data = shape.xpath('.//a:blip/@r:embed')
-    #                 if image_data:
-    #                     embed_id = image_data[0]
-    #                     img_caption = f'image_{embed_id}.png'
-    #                     # Append the image filename to the same paragraph
-    #                     new_paragraph.add_run(f" image_filename: ({img_caption})")
-    #         else:
-    #             new_paragraph.add_run(run.text)
-    
-    doc.save(output_path)
-    print(f"Images replaced with descriptions. New file: {output_path}")
-
-
-
-
-
+  
 def main():
     if len(sys.argv) < 5:
         print("Usage: python extract_images.py <vector_store_filename> <filepath> <assistant_id> <cleanup> <updateAiDescription>")
@@ -296,7 +250,7 @@ def main():
     if updateAiDescription:
         add_image_description_to_docx(vector_store_filename, filepath, conn)
 
-    replace_images_with_text(vector_store_filename, output_path_without_images, conn)
+    replace_images_with_text(vector_store_filename, filepath, output_path_without_images, conn)
     conn.close()
 if __name__ == "__main__":
     main()
