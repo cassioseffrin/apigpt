@@ -22,11 +22,26 @@ from Levenshtein import distance as levenshtein_distance
 import os
 from flask import send_from_directory
 def create_new_thread_and_talk(message):
+
+
+    instructions = '''
+**You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
+**Responda sempre no idioma português Brasil**
+**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
+**If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
+- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: (smt_figura93.png) instead.
+- Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
+'''
+
     thread = openai.beta.threads.create(
         messages=[
             {
+                'role': 'system',
+                'content': instructions   
+            },
+            {
                 'role': 'user',
-                'content': message,
+                'content': message   
             }
         ]
     )
@@ -214,29 +229,10 @@ A arguments
 Fonte: Aplicativo Play Store, 2024.
 """
 
-# I have this python function:
 def extract_image_filenames(text):
     """Extract all image filenames from the text."""
-    return re.findall(r'image_.*?\.(?:png|jpg)', text)
-
-# based on this sample text:
-# 'Aqui está uma imagem que demonstra como fazer gerv1_image_rId008.jpeg o Check-in em um aplicativo de gerv1_image_rId009.jpg registro de visitas:\n\n- Figura 109: Opção "Fazer check-in" (Documento: smtv6_vector_store.docx) - ![Imagem](smtv6_image_rId119.png)\n\nNessa imagem, você pode ver a interface de um aplicativo móvel para registrar uma nova visita, onde o usuário deve pressionar sobre a opção "Fazer check-in" para comprovar que o vendedor esteve em visita no cliente.\n\nFonte:\n- Documento: smtv6_vector_store.docx'
-
-# could you fix this function to extract from the array  the follow results
-
-# smtv6_image_rId119.png
-# gerv1_image_rId008.jpeg
-# gerv1_image_rId010.jpg
-
+    return re.findall(r'\b\w+_(?:figura|image)\d+\.(?:png|jpg|jpeg)\b', text)
  
-
-def extract_image_filenames(text):
-    """Extract all image filenames from the text."""
-    return re.findall(r'\b\w+_image_rId\d+\.(?:png|jpg|jpeg)\b', text)
-
- 
-
-
 def continuar_conversar_v7_nao_funciona(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,
@@ -288,13 +284,13 @@ Remember to maintain the user's original intent in the search string and to ensu
     )
     if run.status == "requires_action":
         if run.required_action.submit_tool_outputs.tool_calls[0].type == 'function':
-            # Extract the relevant filenames from GPT's response
+
             tool_function = run.required_action.submit_tool_outputs.tool_calls[0].function
             function_name = getattr(tool_function, 'name')
             arguments = getattr(tool_function, 'arguments')
-            # Call the get_images function with the extracted image filenames
+
             result = getImage(arguments['query'])
-            # Submit the tool's output for further processing
+
             run = openai.beta.threads.runs.submit_tool_outputs(
                 thread_id=thread_id,
                 run_id=run.id,
@@ -369,7 +365,7 @@ Remember to maintain the user's original intent in the search string and to ensu
             function_name = getattr(tool_function, 'name')
             arguments = getattr(tool_function, 'arguments')
             # Now call the function from the tools dictionary using the function name
-            result = get_image(arguments)
+            result = getImage(arguments)
             # Pass the tool's output result for more processing
             run = client.beta.threads.runs.submit_tool_outputs(
                 thread_id=thread_id,
@@ -406,12 +402,12 @@ def continuar_conversar(thread_id, assistant_id, message):
 # '''
 
     instructions = '''
-**You are the 'The assistant for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
+**You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
 **Responda sempre no idioma português Brasil**
-**If the user asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
-- Extract arguments from the vector store file search
-- Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png)
-- If you don't find any image_filename in response to user, please don't make references of the vector store file search
+**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
+**If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
+- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: (smt_figura93.png) instead.
+- Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
 '''
 
     run = openai.beta.threads.runs.create_and_poll(

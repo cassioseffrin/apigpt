@@ -234,62 +234,95 @@ def replace_images_with_text_old(doc_path, filepath, output_path, conn):
     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
 
 
+ 
+
+# def replace_images_with_text(doc_path, filepath, output_path, conn):
+#     # Load the original document and create a new one
+#     doc = Document(doc_path)
+#     new_doc = Document()
+    
+#     for paragraph in doc.paragraphs:
+#         new_paragraph = new_doc.add_paragraph()  # Add a new paragraph to the new document
+        
+#         for run in paragraph.runs:
+#             if run._element.xpath('.//w:drawing'):  # Check if the run contains a drawing (image)
+#                 inline_shapes = run._element.xpath('.//w:drawing')
+                
+#                 for shape in inline_shapes:
+#                     graphic_xml = ET.tostring(shape)  # Convert shape XML to string
+#                     pic_element = ET.fromstring(graphic_xml)  # Parse XML
+#                     namespaces = {
+#                         'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
+#                         'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+#                         'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+#                     }
+
+#                     cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
+#                     if cNvPr_element is not None:
+#                         alt_text = cNvPr_element.get('descr', None)
+#                         if not alt_text:
+#                             alt_text = cNvPr_element.get('name', None)
+#                         if not alt_text:
+#                             alt_text = f'image_{len(inline_shapes) + 1:04d}'
+
+#                         blip_element = pic_element.find('.//a:blip', namespaces)
+#                         if blip_element is not None:
+#                             embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+#                             rel = doc.part.rels[embed_id]
+#                             if rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image':
+#                                 # Construct the full image filename
+#                                 image_filename = f"{filepath}_{alt_text}.png"
+
+#                                 # Get the title and description from the database
+#                                 title, description = get_description_from_db(conn, image_filename)
+
+#                                 # Add the title and description to the new paragraph
+#                                 new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({image_filename}), Descrição: ")
+#                                 new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({image_filename})")
+#             else:
+#                 # If the run does not contain an image, copy the text to the new paragraph
+#                 new_paragraph.add_run(run.text)
+
+#     # Save the new document after replacing images with text
+#     new_doc.save(output_path)
+#     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
+
 
  
 
-def replace_images_with_text(document, filepath, output_path, conn):
-    image_data = []
+def replace_images_with_text(image_data, doc_path, filepath, output_path, conn):
+    # Load the original document and create a new one
+    doc = Document(doc_path)
+    new_doc = Document()
 
-    shapes_to_remove = []
+    image_index = 0  # To keep track of images in image_data
 
-    for shape in document.inline_shapes:
-        graphic = shape._inline.graphic
-        if not graphic:
-            continue
-        graphic_xml = graphic.xml
-        pic_element = ET.fromstring(graphic_xml)
-        namespaces = {
-            'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
-            'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-        }
-        cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
-        if cNvPr_element is not None:
-            alt_text = cNvPr_element.get('descr', None)
-            if not alt_text:
-                alt_text = cNvPr_element.get('name', None)
-            if not alt_text:
-                alt_text = f'image_{len(image_data) + 1:04d}'
-            
-            blip_element = pic_element.find('.//a:blip', namespaces)
-            if blip_element is not None:
-                embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-                rel = document.part.rels[embed_id]
-                if rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image':
-                    image = rel.target_part.blob
-                    content_type = rel._target.image.content_type
-                    ext = rel._target.image.ext
-                    if ext is None or len(ext) == 0:
-                        ext = "png"
-                    filename = generate_filename_from_alt_text(alt_text, ext)
-                    title, description = get_description_from_db(conn, f"{filepath + '_'+ filename}")
-                    
-       
-                    image_data.append((image, alt_text, filename, shape, content_type))
-                    
-                    paragraph = shape._inline.getparent().getparent()
-                    shapes_to_remove.append(shape)  # Mark the shape for removal
-                    
-                    parent_paragraph = paragraph.getparent()
-                    index = parent_paragraph.index(paragraph)  # Get the position of the current paragraph
-                    new_paragraph = parent_paragraph.insert_paragraph_before("TESTANDO DESCRICAO")
-                    
-                    parent_paragraph._element.insert(index + 1, new_paragraph._element)
+    for paragraph in doc.paragraphs:
+        new_paragraph = new_doc.add_paragraph()  # Add a new paragraph to the new document
 
-    for shape in shapes_to_remove:
-        shape._inline.getparent().remove(shape._inline)
+        for run in paragraph.runs:
+            if run._element.xpath('.//w:drawing'):  # Check if the run contains a drawing (image)
+                # Use the pre-extracted image data
+                if image_index < len(image_data):
+                    image, alt_text, filename, shape, content_type = image_data[image_index]
+                    image_filename = f"{filepath}_{filename}"
 
-    return image_data 
+                    # Get the title and description from the database using the image filename
+                    title, description = get_description_from_db(conn, image_filename)
+
+                    # Add the title and description to the new paragraph
+                    new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({image_filename}), Descrição: ")
+                    new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({image_filename})")
+
+                    image_index += 1  # Move to the next image in the image_data list
+            else:
+                # If the run does not contain an image, copy the text to the new paragraph
+                new_paragraph.add_run(run.text)
+
+    # Save the new document after replacing images with text
+    new_doc.save(output_path)
+    print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
+
 
 def main():
     if len(sys.argv) < 5:
@@ -314,7 +347,7 @@ def main():
     output_path_without_images = f"{os.path.splitext(vector_store_filename)[0]}_data.docx"
     if updateAiDescription:
         add_image_description_to_docx(vector_store_filename, filepath, conn)
-    replace_images_with_text(vector_store_filename, filepath, output_path_without_images, conn)
+    replace_images_with_text(image_data, vector_store_filename, filepath, output_path_without_images, conn)
     conn.close()
 if __name__ == "__main__":
     main()
