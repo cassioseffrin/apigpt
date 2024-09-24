@@ -4,6 +4,8 @@ import sqlite3
 from docx import Document
 from xml.etree import ElementTree as ET
 from openai import OpenAI
+import re
+import unicodedata
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getImage'
 # SERVER_DEV_URL = 'http://127.0.0.1:4014/api/getTempImage'
 client = OpenAI()
@@ -29,7 +31,6 @@ def setup_database(db_path):
     ''')
     conn.commit()
     return conn
- 
 def get_description_from_db(conn, img_caption):
     cursor = conn.cursor()
     cursor.execute('''
@@ -41,7 +42,6 @@ def get_description_from_db(conn, img_caption):
         return title, description
     else:
         return "sem titulo", "sem descricao"
-
 def get_filename_from_title_db(conn, title):
     cursor = conn.cursor()
     cursor.execute('''
@@ -78,9 +78,25 @@ def extract_images_from_docx(document):
                 rel = document.part.rels[embed_id]
                 if rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image':
                     image = rel.target_part.blob
-                    filename = f'image_{embed_id}.png'
+                    filename = generate_filename_from_alt_text(alt_text, f'image_{embed_id}.png')
                     image_data.append((image, alt_text, filename, shape))
     return image_data
+def generate_filename_from_alt_text(alt_text, original_filename):
+    alt_text = alt_text.strip().lower()
+    figura_match = re.match(r'figura\s*(\d+)', alt_text)
+    if figura_match:
+        figure_number = int(figura_match.group(1))
+        return f"figura{figure_number:02d}.png"
+    picture_match = re.match(r'picture\s*(\d+)', alt_text)
+    if picture_match:
+        picture_number = int(picture_match.group(1))
+        return f"picture{picture_number}.png"
+    alt_text_no_spaces = ''.join(alt_text.split())
+    alt_text_normalized = ''.join(
+        c for c in unicodedata.normalize('NFD', alt_text_no_spaces)
+        if unicodedata.category(c) != 'Mn'
+    )
+    return alt_text_normalized if alt_text_normalized else original_filename
 def save_images_to_disk(image_data, vectorStorePath):
     completeFilePath = "./src/imgs/"+vectorStorePath
     if not os.path.exists(completeFilePath):
@@ -90,7 +106,6 @@ def save_images_to_disk(image_data, vectorStorePath):
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
         print(f'Saved image to {img_path}')
-
 def add_image_description_to_docx(doc_path, output_path, conn):
     doc = Document(doc_path)
     image_data = extract_images_from_docx(doc)
@@ -114,7 +129,7 @@ def add_image_description_to_docx(doc_path, output_path, conn):
         new_paragraph = doc.add_paragraph(f"{description} IMAGE_FILENAME: ({filename})")
         parent_element.insert(index + 1, new_paragraph._element)
     doc.save(output_path)
-    print(f"Images updated and descriptions added. New file: {output_path}")
+    print(f"Imagens atualizadas e descrições adicionadas. Novo arquivo: {output_path}")
 def get_image_description(image_path, image_name):
     try:
         image_url = f"{SERVER_URL}/{image_path}_{image_name}"
@@ -135,7 +150,7 @@ def get_image_description(image_path, image_name):
         )
         return response.choices[0].message.content
     except Exception as error:
-        print("Error processing image:", error)
+        print("Erro ao processar imagem:", error)
         raise error
 def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDescription, filepath):
     cursor = conn.cursor()
@@ -173,7 +188,6 @@ def cleanup_files(conn, filepath, assistant_id):
         WHERE assistant_id = (SELECT id FROM assistant WHERE assistantId = ? AND filepath = ? )
     ''', (assistant_id, filepath))
     conn.commit()
-
 def replace_images_with_text_ignore_strings(doc_path, filepath, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
@@ -199,7 +213,7 @@ def replace_images_with_text_ignore_strings(doc_path, filepath, output_path, con
                 else:
                     new_paragraph.add_run(run.text)
     new_doc.save(output_path)
-    print(f"Images replaced with descriptions. New file: {output_path}")
+    print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
 def replace_images_with_text(doc_path, filepath, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
@@ -219,10 +233,8 @@ def replace_images_with_text(doc_path, filepath, output_path, conn):
                         new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({complete_filename})")
             else:
                 new_paragraph.add_run(run.text)
-
     new_doc.save(output_path)
     print(f"Images replaced with descriptions. New file: {output_path}")
-  
 def main():
     if len(sys.argv) < 5:
         print("Usage: python extract_images.py <vector_store_filename> <filepath> <assistant_id> <cleanup> <updateAiDescription>")
@@ -241,15 +253,11 @@ def main():
         cleanup_files(conn, filepath, assistant_id)
         if (updateAiDescription==False):
             insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
-
     if updateAiDescription:
         insert_image_data(conn, image_data, 'Smart Vendas', assistant_id, updateAiDescription, filepath)
-        
-    # output_path = f"{os.path.splitext(vector_store_filename)[0]}_com_descricao.docx"
-    output_path_without_images = f"{os.path.splitext(vector_store_filename)[0]}_vector_store.docx"
+    output_path_without_images = f"{os.path.splitext(vector_store_filename)[0]}_data.docx"
     if updateAiDescription:
         add_image_description_to_docx(vector_store_filename, filepath, conn)
-
     replace_images_with_text(vector_store_filename, filepath, output_path_without_images, conn)
     conn.close()
 if __name__ == "__main__":
