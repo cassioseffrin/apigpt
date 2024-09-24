@@ -180,17 +180,6 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
         conn.commit()  
 def cleanup_files(conn, filepath, assistant_id):
     cursor = conn.cursor()
-    # cursor.execute('''
-    #     SELECT images.filename FROM images
-    #     JOIN assistant ON images.assistant_id = assistant.id
-    #     WHERE assistant.assistantId = ?
-    # ''', (assistant_id,))
-    # files_to_delete = cursor.fetchall()
-    # for (filename,) in files_to_delete:
-    #     img_path = os.path.join(filepath, filename)
-    #     if os.path.exists(img_path):
-    #         os.remove(img_path)
-    #         print(f'Deleted image {img_path}')
     cursor.execute('''
         DELETE FROM images
         WHERE assistant_id = (SELECT id FROM assistant WHERE assistantId = ? AND filepath = ? )
@@ -222,7 +211,7 @@ def replace_images_with_text_ignore_strings(doc_path, filepath, output_path, con
                     new_paragraph.add_run(run.text)
     new_doc.save(output_path)
     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
-def replace_images_with_text(doc_path, filepath, output_path, conn):
+def replace_images_with_text_old(doc_path, filepath, output_path, conn):
     doc = Document(doc_path)
     new_doc = Document()
     for paragraph in doc.paragraphs:
@@ -243,6 +232,65 @@ def replace_images_with_text(doc_path, filepath, output_path, conn):
                 new_paragraph.add_run(run.text)
     new_doc.save(output_path)
     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
+
+
+
+ 
+
+def replace_images_with_text(document, filepath, output_path, conn):
+    image_data = []
+
+    shapes_to_remove = []
+
+    for shape in document.inline_shapes:
+        graphic = shape._inline.graphic
+        if not graphic:
+            continue
+        graphic_xml = graphic.xml
+        pic_element = ET.fromstring(graphic_xml)
+        namespaces = {
+            'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
+            'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+        }
+        cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
+        if cNvPr_element is not None:
+            alt_text = cNvPr_element.get('descr', None)
+            if not alt_text:
+                alt_text = cNvPr_element.get('name', None)
+            if not alt_text:
+                alt_text = f'image_{len(image_data) + 1:04d}'
+            
+            blip_element = pic_element.find('.//a:blip', namespaces)
+            if blip_element is not None:
+                embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                rel = document.part.rels[embed_id]
+                if rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image':
+                    image = rel.target_part.blob
+                    content_type = rel._target.image.content_type
+                    ext = rel._target.image.ext
+                    if ext is None or len(ext) == 0:
+                        ext = "png"
+                    filename = generate_filename_from_alt_text(alt_text, ext)
+                    title, description = get_description_from_db(conn, f"{filepath + '_'+ filename}")
+                    
+       
+                    image_data.append((image, alt_text, filename, shape, content_type))
+                    
+                    paragraph = shape._inline.getparent().getparent()
+                    shapes_to_remove.append(shape)  # Mark the shape for removal
+                    
+                    parent_paragraph = paragraph.getparent()
+                    index = parent_paragraph.index(paragraph)  # Get the position of the current paragraph
+                    new_paragraph = parent_paragraph.insert_paragraph_before("TESTANDO DESCRICAO")
+                    
+                    parent_paragraph._element.insert(index + 1, new_paragraph._element)
+
+    for shape in shapes_to_remove:
+        shape._inline.getparent().remove(shape._inline)
+
+    return image_data 
+
 def main():
     if len(sys.argv) < 5:
         print("Uso: python atualizarBaseConhecimento.py <nome_do_arquivo_de_armazenamento_de_vetores> <caminho_do_arquivo> <id_do_assistente> <limpar_base_dados> <atualizar_descricao_ai>")
