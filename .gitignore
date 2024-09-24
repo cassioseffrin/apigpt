@@ -137,3 +137,5 @@ images_assistant.db-journal
 images/
 temp_image.png
 tempImages/
+.DS_Store
+src/.DS_Store

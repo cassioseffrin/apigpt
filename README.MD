@@ -22,7 +22,7 @@ pip install python-docx pillow openai
 pip install fuzzywuzzy python-Levenshtein
 pip install sentence-transformers
 pip install "numpy<2"    
-
+pip3 install  load_dotenv
 <!-- pip install transformers -->
 <!-- pip install sentencepiece -->
 <!-- pip install torch -->
