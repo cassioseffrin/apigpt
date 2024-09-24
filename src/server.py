@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import mimetypes
 from flask import Flask, jsonify, request, send_from_directory 
 import os
 import openai
@@ -292,7 +293,7 @@ Remember to maintain the user's original intent in the search string and to ensu
             function_name = getattr(tool_function, 'name')
             arguments = getattr(tool_function, 'arguments')
             # Call the get_images function with the extracted image filenames
-            result = get_images(arguments['query'])
+            result = getImage(arguments['query'])
             # Submit the tool's output for further processing
             run = openai.beta.threads.runs.submit_tool_outputs(
                 thread_id=thread_id,
@@ -682,36 +683,13 @@ from flask import send_from_directory, abort
 @app.route('/api/getImage/<filename>')
 def getImage(filename):    
     filepath = filename.split('_')[0]
-    file_extension = os.path.splitext(filename)[1].lower()
     completefilename = filepath + "/" + filename
     image_directory = './imgs/'
-    if file_extension == '.png':
-        mimetype = 'image/png'
-    elif file_extension in ['.jpg', '.jpeg']:
-        mimetype = 'image/jpeg'
-    else:
-        abort(415, description="Unsupported image type")
+    mimetype = mimetypes.guess_type(image_directory+completefilename)[0]
     try:
         return send_from_directory(image_directory, completefilename, mimetype=mimetype)
     except FileNotFoundError:
         return "Image not found", 404
-# @app.route('/api/getImage/<filename>')
-# def getImage(filename):    
-#     filepath = filename.split('_')[0]
-#     completefilename = filepath + "/" + filename
-#     image_directory = './imgs/'
-#     try:
-#         return send_from_directory(image_directory, completefilename, mimetype='image/png')  
-#     except FileNotFoundError:
-#         return "Image not found", 404
-# def get_image(filename):    
-#     completefilename =  filepath+"/"+filename
-#     image_directory = './imgs/'
-#     try:
-#         return send_from_directory(image_directory, completefilename, mimetype='image/png')  
-#     except FileNotFoundError:
-#         return "Image not found", 404
-# http://localhost:5000/api/getTempImage/temp_image_rId8.png    
 @app.route('/api/getTempImage/<filepath>/<filename>')
 def get_temp_image(filepath,filename):    
     completefilename =  filepath+"/"+filename

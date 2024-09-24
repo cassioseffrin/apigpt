@@ -23,6 +23,7 @@ def setup_database(db_path):
         CREATE TABLE IF NOT EXISTS images (
             filepath TEXT NOT NULL,
             filename TEXT NOT NULL,
+            content_type TEXT NOT NULL,
             title TEXT,
             description TEXT,
             assistant_id INTEGER,
@@ -78,38 +79,43 @@ def extract_images_from_docx(document):
                 rel = document.part.rels[embed_id]
                 if rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image':
                     image = rel.target_part.blob
-                    filename = generate_filename_from_alt_text(alt_text, f'image_{embed_id}.png')
-                    image_data.append((image, alt_text, filename, shape))
+                    content_type = rel._target.image.content_type
+                    ext = rel._target.image.ext
+                    if ext == None or len(ext) == 0:
+                        ext = "png"
+                    filename = generate_filename_from_alt_text(alt_text,ext)
+                    image_data.append((image, alt_text, filename, shape, content_type))
     return image_data
-def generate_filename_from_alt_text(alt_text, original_filename):
+def generate_filename_from_alt_text(alt_text,   ext):
     alt_text = alt_text.strip().lower()
     figura_match = re.match(r'figura\s*(\d+)', alt_text)
     if figura_match:
         figure_number = int(figura_match.group(1))
-        return f"figura{figure_number:02d}.png"
+        return f"figura{figure_number:02d}.{ext}"
     picture_match = re.match(r'picture\s*(\d+)', alt_text)
     if picture_match:
         picture_number = int(picture_match.group(1))
-        return f"picture{picture_number}.png"
+        return f"picture{picture_number}.{ext}"
     alt_text_no_spaces = ''.join(alt_text.split())
     alt_text_normalized = ''.join(
         c for c in unicodedata.normalize('NFD', alt_text_no_spaces)
         if unicodedata.category(c) != 'Mn'
     )
-    return alt_text_normalized if alt_text_normalized else original_filename
+    # Return the normalized alt_text with the extension
+    return f"{alt_text_normalized}.{ext}"
 def save_images_to_disk(image_data, vectorStorePath):
     completeFilePath = "./src/imgs/"+vectorStorePath
     if not os.path.exists(completeFilePath):
         os.makedirs(completeFilePath)
-    for i, (img, img_desc, img_caption, _) in enumerate(image_data):
+    for i, (img, img_desc, img_caption, content_type, _) in enumerate(image_data):
         img_path = os.path.join(completeFilePath, f'{vectorStorePath}_{img_caption}')
         with open(img_path, 'wb') as img_file:
             img_file.write(img)
-        print(f'Saved image to {img_path}')
+        print(f"Imagem salva em {img_path}")
 def add_image_description_to_docx(doc_path, output_path, conn):
     doc = Document(doc_path)
     image_data = extract_images_from_docx(doc)
-    for image, alt_text, filename, shape in image_data:
+    for image, alt_text, filename, shape, _ in image_data:
         description = get_description_from_db(conn, filename)
         graphic = shape._inline.graphic
         graphic_xml = graphic.xml
@@ -148,6 +154,8 @@ def get_image_description(image_path, image_name):
             ],
             max_tokens=300,
         )
+        # res = response.choices[0].message.content
+        # print(res)
         return response.choices[0].message.content
     except Exception as error:
         print("Erro ao processar imagem:", error)
@@ -161,14 +169,14 @@ def insert_image_data(conn, image_data, assistant_name, assistant_id, updateAiDe
         SELECT id FROM assistant WHERE assistantId = ?
     ''', (assistant_id,))
     assistant_row_id = cursor.fetchone()[0]
-    for img, img_title, img_caption, _ in image_data:  
+    for img, img_title, img_caption, _, content_type in image_data:  
         img_description = None
         if updateAiDescription:
             img_description = get_image_description(filepath, f'{img_caption}')
             # img_description += "filename: f{filename}"
         cursor.execute('''
-            INSERT INTO images (filepath, filename, title, description, assistant_id) VALUES (?, ?, ?, ?, ?)
-        ''', (filepath, f'{filepath}_{img_caption}', img_title, img_description, assistant_row_id))
+            INSERT INTO images (filepath, filename, content_type, title, description, assistant_id) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (filepath, f'{filepath}_{img_caption}', content_type, img_title, img_description, assistant_row_id))
         conn.commit()  
 def cleanup_files(conn, filepath, assistant_id):
     cursor = conn.cursor()
@@ -234,10 +242,10 @@ def replace_images_with_text(doc_path, filepath, output_path, conn):
             else:
                 new_paragraph.add_run(run.text)
     new_doc.save(output_path)
-    print(f"Images replaced with descriptions. New file: {output_path}")
+    print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
 def main():
     if len(sys.argv) < 5:
-        print("Usage: python extract_images.py <vector_store_filename> <filepath> <assistant_id> <cleanup> <updateAiDescription>")
+        print("Uso: python atualizarBaseConhecimento.py <nome_do_arquivo_de_armazenamento_de_vetores> <caminho_do_arquivo> <id_do_assistente> <limpar_base_dados> <atualizar_descricao_ai>")
         sys.exit(1)
     vector_store_filename = sys.argv[1]
     filepath = sys.argv[2]
