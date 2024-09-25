@@ -35,18 +35,20 @@ python3 src/extract_images_desc_below_Image.py "/home/arpa/apigpt/src/docx/smart
 python3 src/server.py
 
 
+REUNIAO PROXIMOS PASSOS IA
 
+**O setor de documentação obrigatoriamente deve ter amplo conhecimento do sistema para treinar o modelo.
 
-**Setor de documentacao tem obrigatoriamente deve conhecer muito o sistema para treinar o modelo.
+**As bases de conhecimento foram melhoradas programaticamente:
 
-**As bases de conhecimento foram melhoradas programaticamente.
-    - Todas imagens foram extraídas. (A qualidade das imagens do docx estao muito baixas)
-    - As imagens foram descritas por AI e acrescentadas no vector store com base nos textos. Referencias ao nomes aquivos imagens marcadas.
-    - Titulos das imagens transferidas para a descricao das imagens, titulo removido pra evitar redundancias.
-    - Apos GPT gerar resposta com base no texto mais descricoes das imagens ao achar referencia para arquivos foi criado agoritmo pra regatar as imagens com base na API.
-    - Verificar questao apresentacao desta imagens (links, ou motrar tudo no chat)
-    - 
+- Todas as imagens foram extraídas. (A qualidade das imagens do docx está muito baixa.)
+- As imagens foram descritas por IA e acrescentadas no vector store com base nos textos. Referências aos nomes dos arquivos de imagens foram marcadas.
+- Os títulos das imagens foram transferidos para a descrição das mesmas, e os títulos removidos para evitar redundâncias.
+- Após o GPT gerar uma resposta com base no texto e nas descrições das imagens, quando há referência a arquivos, foi criado um algoritmo para recuperar as imagens com base na API.
+- Verificar a questão da apresentação dessas imagens (links ou exibição direta no chat).
 
-**A API do GPT é generativa, mas as respostas para o assistente sao efemeras,  generativas para thread atual. Portanto;
-    - Fazer testes com perguntas estratégicas com base em um check list.
-    - Avaliar respostas e acrestentar no manual (vector store) as faltas de conhecimento (limbos) para evitar composicoes de resposta inconsistentes.
+**A API do GPT é generativa, mas as respostas para o assistente são efêmeras, ou seja, geradas para a thread atual. Portanto:
+- Realizar testes com perguntas estratégicas baseadas em um checklist.
+- Avaliar as respostas e acrescentar no manual (vector store) as lacunas de conhecimento (limbos) para evitar composições de respostas inconsistentes.
+
+*Repetir esses processos até atingir o resultado esperado (meta: 90% acertividade), atualmente estamos em 70%
