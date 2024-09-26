@@ -416,11 +416,11 @@ def continuar_conversar(thread_id, assistant_id, message):
             for index, image_filename in enumerate(arrayImg):
                 image_url = f"{base_url_img}{image_filename}"
                 thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>'
-                # response_content.text.value = re.sub(
-                #     rf"\({image_filename}\)",
-                #     f".\n{thumbnail}",
-                #     response_content.text.value
-                # )
+                response_content.text.value = re.sub(
+                    rf"\({image_filename}\)",
+                    image_filename,
+                    response_content.text.value
+                )
                 response_content.text.value = re.sub(
                     rf"{image_filename}",
                     f":\n{thumbnail}",
@@ -428,10 +428,11 @@ def continuar_conversar(thread_id, assistant_id, message):
                 )
 
                 response_content.text.value  = re.sub(
-                    rf"\.\s*\>\.",
+                    r"\>\.",
                     ">",
-                    response_content.text.value 
+                    response_content.text.value
                 )
+
 
 
                 # response_content.text.value = re.sub(
