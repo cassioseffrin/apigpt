@@ -28,7 +28,7 @@ def create_new_thread_and_talk(message):
 **The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
 **If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
 - Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
-- Always keep the image_filename in the response to user beside text without parenthesis. eg: (smt_figura93.png) become just smt_figura93.png
+- Always keep the image_filename in the response to user beside text without parenthesis, brackets quotes. eg: (smt_figura93.png) or [smt_figura93.png] or !(smt_figura93.png) must be returned as  just smt_figura93.png
 '''
     thread = openai.beta.threads.create(
         messages=[
@@ -398,7 +398,7 @@ def continuar_conversar(thread_id, assistant_id, message):
 **The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
 **If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
 - Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
-- Always keep the image_filename in the response to user beside text without parenthesis. eg: (smt_figura93.png) become just smt_figura93.png
+- Always keep the image_filename in the response to user beside text without parenthesis, brackets quotes. eg: (smt_figura93.png) or [smt_figura93.png] or !(smt_figura93.png) must be returned as  just smt_figura93.png
 '''
 # - Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
     run = openai.beta.threads.runs.create_and_poll(
@@ -416,8 +416,13 @@ def continuar_conversar(thread_id, assistant_id, message):
             for index, image_filename in enumerate(arrayImg):
                 image_url = f"{base_url_img}{image_filename}"
                 thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>'
+                # response_content.text.value = re.sub(
+                #     rf"\({image_filename}\)",
+                #     f".\n{thumbnail}",
+                #     response_content.text.value
+                # )
                 response_content.text.value = re.sub(
-                    rf"\({image_filename}\)",
+                    rf"{image_filename}",
                     f".\n{thumbnail}",
                     response_content.text.value
                 )
