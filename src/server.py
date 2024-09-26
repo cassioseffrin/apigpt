@@ -22,17 +22,14 @@ from Levenshtein import distance as levenshtein_distance
 import os
 from flask import send_from_directory
 def create_new_thread_and_talk(message):
-
-
     instructions = '''
 **You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
-**Responda sempre no idioma português Brasil**
+**Always compose the response to USER in português/Brasil**
 **The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
 **If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
-- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: (smt_figura93.png) instead.
-- Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
+- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
+- Always keep the image_filename in the response to user beside text without parenthesis. eg: (smt_figura93.png) become just smt_figura93.png
 '''
-
     thread = openai.beta.threads.create(
         messages=[
             {
@@ -228,11 +225,9 @@ A arguments
  "Smart Força de Vendas" em um dispositivo móvel. Acima, há um botão para cancelar ou abrir o aplicativo, além de um aviso indicando que ele é verificado pelo Play Protect. Abaixo, são apresentadas sugestões de aplicativos patrocinados, como "Nomad: Conta em Dólar e Cartão", "Livelo: juntar e trocar pontos" e "Estoque, Vendas, Pdv, Finanças", juntamente com mais opções de aplicativos para testar, incluindo "PictureThis Identificador Planta" e "CamScanner". A parte inferior da tela contém ícones de acesso a jogos, aplicativos, e livros. image_rId11.png
 Fonte: Aplicativo Play Store, 2024.
 """
-
 def extract_image_filenames(text):
     """Extract all image filenames from the text."""
     return re.findall(r'\b\w+_(?:figura|image)\d+\.(?:png|jpg|jpeg)\b', text)
- 
 def continuar_conversar_v7_nao_funciona(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,
@@ -284,13 +279,10 @@ Remember to maintain the user's original intent in the search string and to ensu
     )
     if run.status == "requires_action":
         if run.required_action.submit_tool_outputs.tool_calls[0].type == 'function':
-
             tool_function = run.required_action.submit_tool_outputs.tool_calls[0].function
             function_name = getattr(tool_function, 'name')
             arguments = getattr(tool_function, 'arguments')
-
             result = getImage(arguments['query'])
-
             run = openai.beta.threads.runs.submit_tool_outputs(
                 thread_id=thread_id,
                 run_id=run.id,
@@ -400,16 +392,15 @@ def continuar_conversar(thread_id, assistant_id, message):
 #  - Ao encontrar referencias as imagens sempre confrontar com o vector store: sourceImages.json. A imagem deve estar com nomes coesos e integros presentes neste aquivo sourceImages.json
 # EXEMPLOS: Procure fornecer as respostas com maximo de integridade e focadas nos manuais presentes no vector store.
 # '''
-
     instructions = '''
 **You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
-**Responda sempre no idioma português Brasil**
+**Always compose the response to USER in português/Brasil**
 **The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
 **If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
-- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: (smt_figura93.png) instead.
-- Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
+- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
+- Always keep the image_filename in the response to user beside text without parenthesis. eg: (smt_figura93.png) become just smt_figura93.png
 '''
-
+# - Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
@@ -424,13 +415,38 @@ def continuar_conversar(thread_id, assistant_id, message):
             arrayImg = extract_image_filenames(response_content.text.value)
             for index, image_filename in enumerate(arrayImg):
                 image_url = f"{base_url_img}{image_filename}"
-                link_to_image = f'<a href="{image_url}">Imagem: {index+1}</a>'
-                links.append(link_to_image)
-            all_links = "\n".join(links)
-            if len(all_links)>0:
-                last_message_content = f"{last_message.content[0].text.value} \n\n{all_links}"
-                last_message.content[0].text.value = last_message_content
-                return message_to_json_response(last_message, arrayImg)
+                thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>'
+                response_content.text.value = re.sub(
+                    rf"\({image_filename}\)",
+                    f".\n{thumbnail}",
+                    response_content.text.value
+                )
+            # place in postition v1
+            # for index, image_filename in enumerate(arrayImg):
+            #     image_url = f"{base_url_img}{image_filename}"
+            #     thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="30" height="30"></a>'
+            #     response_content.text.value = response_content.text.value.replace(f"({image_filename})", thumbnail)
+            # return message_to_json_response(last_message, arrayImg)
+            #include on bottom
+            # for index, image_filename in enumerate(arrayImg):
+            #     image_url = f"{base_url_img}{image_filename}"
+            #     thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="30" height="30"></a>'
+            #     links.append(thumbnail)
+            # all_thumbnails = "\n".join(links)
+            # if len(all_thumbnails) > 0:
+            #     last_message_content = f"{response_content.text.value} \n\n{all_thumbnails}"
+            #     response_content.text.value = last_message_content
+            #     return message_to_json_response(last_message, arrayImg)
+            # arrayImg = extract_image_filenames(response_content.text.value)
+            # for index, image_filename in enumerate(arrayImg):
+            #     image_url = f"{base_url_img}{image_filename}"
+            #     link_to_image = f'<a href="{image_url}">Imagem: {index+1}</a>'
+            #     links.append(link_to_image)
+            # all_links = "\n".join(links)
+            # if len(all_links)>0:
+            #     last_message_content = f"{last_message.content[0].text.value} \n\n{all_links}"
+            #     last_message.content[0].text.value = last_message_content
+            #     return message_to_json_response(last_message, arrayImg)
             # annotations =  response_content.text.annotations
             # citations = []
             # for index, annotation in enumerate(annotations):
@@ -440,6 +456,11 @@ def continuar_conversar(thread_id, assistant_id, message):
             #     elif (file_path := getattr(annotation, 'file_path', None)):
             #         cited_file = client.files.retrieve(file_path.file_id)
             return message_to_json_response(last_message, arrayImg)
+        
+
+# 'Sim, há prints das telas relacionadas ao cadastro de um cliente. Você pode visualizar as imagens a seguir:\n\n- Figura 06: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/ger_figura06.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/ger_figura06.png" alt="Imagem 1" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 07: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/ger_figura07.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/ger_figura07.png" alt="Imagem 2" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 85: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura85.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura85.png" alt="Imagem 3" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 86: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura86.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura86.png" alt="Imagem 4" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 87: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura87.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura87.png" alt="Imagem 5" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 88: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura88.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura88.png" alt="Imagem 6" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 89: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura89.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura89.png" alt="Imagem 7" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n\nEssas imagens fornecem uma representação visual das telas e campos mencionados no processo de cadastro de um cliente.'
+ 
+
     return None
 def continuar_conversar_v4(thread_id, assistant_id, message):
     best_filename = get_best_match_filename(message)
