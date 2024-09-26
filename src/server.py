@@ -423,10 +423,23 @@ def continuar_conversar(thread_id, assistant_id, message):
                 # )
                 response_content.text.value = re.sub(
                     rf"{image_filename}",
-                    f".\n{thumbnail}",
+                    f":\n{thumbnail}",
                     response_content.text.value
                 )
-                
+
+                response_content.text.value  = re.sub(
+                    rf"\.\s*\>\.",
+                    ">",
+                    response_content.text.value 
+                )
+
+
+                # response_content.text.value = re.sub(
+                #     rf"{image_filename}",
+                #     f".\n{thumbnail}",
+                #     response_content.text.value
+                # )
+
             # place in postition v1
             # for index, image_filename in enumerate(arrayImg):
             #     image_url = f"{base_url_img}{image_filename}"
