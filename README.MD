@@ -59,19 +59,13 @@ http://192.168.50.51/
 
 
 
-A gestão de pedidos no aplicativo é ilustrada através de várias telas que mostram diferentes estágios do processo de pedido. Aqui estão algumas imagens e descrições das telas relevantes:
+ 
 
-Mudar para Concluir:
-
-Esta tela mostra a opção de mudar o status de um pedido de "Em Andamento" para "Concluído". Há um botão verde destacado para essa ação (smt_figura66.png).
-Status Concluído:
-
-Após mudar o status, a tela exibe os pedidos com o status "Concluído", mostrando detalhes como o total e a hora da criação (smt_figura67.png).
-Menu Pedido:
-
-A tela do menu de pedidos lista os pedidos com opções para alterar o status diretamente da lista, facilitando a gestão rápida dos pedidos (smt_figura68.png).
-Confirmação de Mudança de Status:
-
-Quando uma mudança de status é iniciada, o aplicativo apresenta uma mensagem de confirmação para que o usuário escolha entre "Sim" ou "Não" para proceder com a mudança (smt_figura69.png).
-Estas telas ajudam a visualizar e gerenciar o status dos pedidos de forma eficiente no aplicativo .
-
+    instructions = '''
+**You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
+**Always compose the response to USER in português/Brasil**
+**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
+**If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
+- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
+- Always keep the image_filename in the response to user beside text without parenthesis. eg: (smt_figura93.png) become just smt_figura93.png
+'''
