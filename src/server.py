@@ -422,8 +422,8 @@ def continuar_conversar(thread_id, assistant_id, message):
                 #     response_content.text.value
                 # )
                 response_content.text.value = re.sub(
-                    rf"{image_filename}\.",
-                    f".\n{thumbnail}",
+                    rf"{image_filename}",
+                    f"\n{thumbnail}",
                     response_content.text.value
                 )
             # place in postition v1
