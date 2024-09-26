@@ -1,3 +1,14 @@
+OLD
+asst_flN0aLfDHU2Mg35WVKz0XIk1
+
+Smart forca de vendas
+
+Sou seu assistente do Smart forca de vendas. 
+
+Pode perguntar qualquer coisa, estou preparado para ajudar!
+
+NEW
+asst_9rmWBxwCmQay4hyaE7TST9tT
 
 https://github.com/openai/openai-node
 https://assistant.arpasistemas.com.br/createNewThread

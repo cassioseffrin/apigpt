@@ -25,9 +25,9 @@ def create_new_thread_and_talk(message):
     instructions = '''
 **You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
 **Always compose the response to USER in português/Brasil**
-**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
+**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_SrjrEcdYOWxhshy5bBuXyC5Q 
 **If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
-- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
+- Extract arguments from the vector store id: vs_SrjrEcdYOWxhshy5bBuXyC5Q  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
 - Always keep the image_filename in the response to user beside text without parenthesis, brackets quotes. eg: (smt_figura93.png) or [smt_figura93.png] or !(smt_figura93.png) must be returned as  just smt_figura93.png
 '''
     thread = openai.beta.threads.create(
@@ -49,7 +49,7 @@ def start_thread_and_talk():
         data = request.get_json()
         message = data['message']
         thread = create_new_thread_and_talk(message)
-        assistant_id = "asst_flN0aLfDHU2Mg35WVKz0XIk1"
+        assistant_id = "asst_9rmWBxwCmQay4hyaE7TST9tT"
         response = continuar_conversar(thread.id, assistant_id, message)
         response = {'threadId': thread.id, **response}
         return jsonify(response), 200
@@ -69,7 +69,7 @@ def create_new_thread_endpoint():
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        assistant_id = "asst_flN0aLfDHU2Mg35WVKz0XIk1"
+        assistant_id = "asst_9rmWBxwCmQay4hyaE7TST9tT"
         data = request.get_json()
         thread_id = data['threadId']
         message = data['message']
@@ -100,7 +100,7 @@ def webhook_bitrix():
     try:
         data = request.get_json()
         prompt = data['prompt']
-        assistant_id = "asst_flN0aLfDHU2Mg35WVKz0XIk1"
+        assistant_id = "asst_9rmWBxwCmQay4hyaE7TST9tT"
         thread = create_new_thread()
         response = conversar_nova_thread_bitrix(thread.id, assistant_id, prompt)
         return jsonify(response), 200
@@ -395,10 +395,10 @@ def continuar_conversar(thread_id, assistant_id, message):
     instructions = '''
 **You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
 **Always compose the response to USER in português/Brasil**
-**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk. 
+**The USER is common person without knowedges on compute science. Make the ASSISTANT compose the answer with focus on vector store id: vs_SrjrEcdYOWxhshy5bBuXyC5Q **
 **If the USER asks about "tem alguma imagem" or "tem um print da tela" or "tem uma foto" or "tem um exemplo de" you would**
-- Extract arguments from the vector store id: vs_RQ0yI0KT4gHbzbrJkGIFbaMk.  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
-- Always keep the image_filename in the response to user beside text without parenthesis, brackets quotes. eg: (smt_figura93.png) or [smt_figura93.png] or !(smt_figura93.png) must be returned as  just smt_figura93.png
+- Always keep the image_filename in the response to user beside text without parenthesis, brackets, quotes or ![Imagem]. eg: when the SYSTEM found text in vector stores like ![Imagem](smt_figura93.png)【4:1†source】return just smt_figura93.png
+- Extract arguments from the vector store id: vs_SrjrEcdYOWxhshy5bBuXyC5Q  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
 '''
 # - Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
     run = openai.beta.threads.runs.create_and_poll(
@@ -427,11 +427,11 @@ def continuar_conversar(thread_id, assistant_id, message):
                     response_content.text.value
                 )
 
-                response_content.text.value  = re.sub(
-                    r"\>\.",
-                    ">",
-                    response_content.text.value
-                )
+                # response_content.text.value  = re.sub(
+                #     r"\>\.",
+                #     ">",
+                #     response_content.text.value
+                # )
 
 
 
