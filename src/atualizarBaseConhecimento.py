@@ -7,7 +7,6 @@ from openai import OpenAI
 import re
 import unicodedata
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getImage'
-# SERVER_DEV_URL = 'http://127.0.0.1:4014/api/getTempImage'
 client = OpenAI()
 def setup_database(db_path):
     conn = sqlite3.connect(db_path)
@@ -101,7 +100,6 @@ def generate_filename_from_alt_text(alt_text,   ext):
         c for c in unicodedata.normalize('NFD', alt_text_no_spaces)
         if unicodedata.category(c) != 'Mn'
     )
-    # Return the normalized alt_text with the extension
     return f"{alt_text_normalized}.{ext}"
 def save_images_to_disk(image_data, vectorStorePath):
     completeFilePath = "./src/imgs/"+vectorStorePath
@@ -232,98 +230,26 @@ def replace_images_with_text_old(doc_path, filepath, output_path, conn):
                 new_paragraph.add_run(run.text)
     new_doc.save(output_path)
     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
-
-
- 
-
-# def replace_images_with_text(doc_path, filepath, output_path, conn):
-#     # Load the original document and create a new one
-#     doc = Document(doc_path)
-#     new_doc = Document()
-    
-#     for paragraph in doc.paragraphs:
-#         new_paragraph = new_doc.add_paragraph()  # Add a new paragraph to the new document
-        
-#         for run in paragraph.runs:
-#             if run._element.xpath('.//w:drawing'):  # Check if the run contains a drawing (image)
-#                 inline_shapes = run._element.xpath('.//w:drawing')
-                
-#                 for shape in inline_shapes:
-#                     graphic_xml = ET.tostring(shape)  # Convert shape XML to string
-#                     pic_element = ET.fromstring(graphic_xml)  # Parse XML
-#                     namespaces = {
-#                         'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
-#                         'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-#                         'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-#                     }
-
-#                     cNvPr_element = pic_element.find('.//pic:cNvPr', namespaces)
-#                     if cNvPr_element is not None:
-#                         alt_text = cNvPr_element.get('descr', None)
-#                         if not alt_text:
-#                             alt_text = cNvPr_element.get('name', None)
-#                         if not alt_text:
-#                             alt_text = f'image_{len(inline_shapes) + 1:04d}'
-
-#                         blip_element = pic_element.find('.//a:blip', namespaces)
-#                         if blip_element is not None:
-#                             embed_id = blip_element.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-#                             rel = doc.part.rels[embed_id]
-#                             if rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image':
-#                                 # Construct the full image filename
-#                                 image_filename = f"{filepath}_{alt_text}.png"
-
-#                                 # Get the title and description from the database
-#                                 title, description = get_description_from_db(conn, image_filename)
-
-#                                 # Add the title and description to the new paragraph
-#                                 new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({image_filename}), Descrição: ")
-#                                 new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({image_filename})")
-#             else:
-#                 # If the run does not contain an image, copy the text to the new paragraph
-#                 new_paragraph.add_run(run.text)
-
-#     # Save the new document after replacing images with text
-#     new_doc.save(output_path)
-#     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
-
-
- 
-
 def replace_images_with_text(image_data, doc_path, filepath, output_path, conn):
-    # Load the original document and create a new one
     doc = Document(doc_path)
     new_doc = Document()
-
-    image_index = 0  # To keep track of images in image_data
-
+    image_index = 0  
     for paragraph in doc.paragraphs:
-        new_paragraph = new_doc.add_paragraph()  # Add a new paragraph to the new document
-
+        new_paragraph = new_doc.add_paragraph()   
         for run in paragraph.runs:
-            if run._element.xpath('.//w:drawing'):  # Check if the run contains a drawing (image)
-                # Use the pre-extracted image data
+            if run._element.xpath('.//w:drawing'):   
                 if image_index < len(image_data):
                     image, alt_text, filename, shape, content_type = image_data[image_index]
                     image_filename = f"{filepath}_{filename}"
-
-                    # Get the title and description from the database using the image filename
                     title, description = get_description_from_db(conn, image_filename)
-
-                    # Add the title and description to the new paragraph
                     new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({image_filename}), Descrição: ")
                     new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({image_filename})")
-
-                    image_index += 1  # Move to the next image in the image_data list
+                    image_index += 1
             else:
-                # If the run does not contain an image, copy the text to the new paragraph
                 new_paragraph.add_run(run.text)
-
     # Save the new document after replacing images with text
     new_doc.save(output_path)
     print(f"Imagens substituídas por descrições. Novo arquivo: {output_path}")
-
-
 def main():
     if len(sys.argv) < 5:
         print("Uso: python atualizarBaseConhecimento.py <nome_do_arquivo_de_armazenamento_de_vetores> <caminho_do_arquivo> <id_do_assistente> <limpar_base_dados> <atualizar_descricao_ai>")
