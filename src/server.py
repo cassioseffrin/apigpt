@@ -227,7 +227,7 @@ Fonte: Aplicativo Play Store, 2024.
 """
 def extract_image_filenames(text):
     """Extract all image filenames from the text."""
-    return re.findall(r'\b\w+_(?:figura|image)\d+\.(?:png|jpg|jpeg)\b', text)
+    return re.findall(r'\b\w+_(?:figura|image|picture)[^\s]+\.(?:png|jpg|jpeg)\b', text)
 def continuar_conversar_v7_nao_funciona(thread_id, assistant_id, message):
     openai.beta.threads.messages.create(
         thread_id=thread_id,
