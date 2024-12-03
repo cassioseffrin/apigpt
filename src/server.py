@@ -58,6 +58,8 @@ def start_thread_and_talk():
         return "Error", 500
 def create_new_thread():
     return openai.beta.threads.create()
+
+
 @app.route('/createNewThread', methods=['GET'])
 def create_new_thread_endpoint():
     try:
@@ -66,13 +68,33 @@ def create_new_thread_endpoint():
     except Exception as e:
         print(f"Error: {e}")
         return "Error creating thread", 500
+    
+def getAssistantId(assistant_name):
+    data = [
+        '"assistantName": "SMART",  "assistantID": asst_9rmWBxwCmQay4hyaE7TST9tT',
+        '"assistantName": "VAREJO",  "assistantID": asst_92344Qay4534TST455352SXT',
+        '"assistantName": "PDV",  "assistantID": asst_ERGDFB34s455352SgsgfdgXT'
+    ]
+    
+    # Define the regex pattern
+    pattern = re.compile(r'"assistantName": "{}".*?"assistantID": (asst_\w+)'.format(re.escape(assistant_name)))
+    
+    # Search through the data
+    for entry in data:
+        match = pattern.search(entry)
+        if match:
+            return match.group(1)  # Return the assistantID if found
+    
+    return None  # Return None if no match is found
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        assistant_id = "asst_9rmWBxwCmQay4hyaE7TST9tT"
         data = request.get_json()
+        # assistant_id = "asst_9rmWBxwCmQay4hyaE7TST9tT"
         thread_id = data['threadId']
         message = data['message']
+        assistant_id = getAssistantId(data['assistantName'])
         # openai.beta.threads.messages.create(
         #     thread_id=thread_id,
         #     role='user',
@@ -382,16 +404,7 @@ def continuar_conversar(thread_id, assistant_id, message):
         role='user',
         content=message
     )
-#     instructions = '''
-# **PERSONAGEM: Você é o 'Assistente virtual do Smart forca de vendas': Um Chatbot com a capacidade de realizar pesquisas avançadas baseadas em vetores para fornecer respostas contextualmente relevantes às consultas dos usuários.
-# **INSTRUÇÕES: 
-#  - Responda sempre no idioma português Brasil
-# ** Se o usuário perguntar sobre "tem alguma imagem", "tem um print da tela" ou "tem uma foto da tela" você deve:
-#  - Sempre manter o image_filename na resposta ao usuário junto à anotação das citações, por exemplo: (smtv6_image_rId100.png ou gerv1_image_rId008.jpg ou gerv1_image_rId89.jpeg). Ou seja, todas as sequências image.png, image.jpg ou image.jpg, onde o * (asterisco) pode ser qualquer string.
-#  - Os nomes dos aquivos de imagens (png, jpg ou jpeg) serão precedidos pela string IMAGE_FILENAME. Ex:  IMAGE_FILENAME: (smtv6_image_rId100.png)
-#  - Ao encontrar referencias as imagens sempre confrontar com o vector store: sourceImages.json. A imagem deve estar com nomes coesos e integros presentes neste aquivo sourceImages.json
-# EXEMPLOS: Procure fornecer as respostas com maximo de integridade e focadas nos manuais presentes no vector store.
-# '''
+ 
     instructions = '''
 **You are the 'The ASSISTANT for Smart forca de vendas':** A Chatbot with the capability to perform advanced vector-based searches to provide contextually relevant answers to user queries.
 **Always compose the response to USER in português/Brasil**
@@ -400,7 +413,6 @@ def continuar_conversar(thread_id, assistant_id, message):
 - Always keep the image_filename in the response to user beside text without parenthesis, brackets, quotes or ![Imagem]. eg: when the SYSTEM found text in vector stores like ![Imagem](smt_figura93.png)【4:1†source】return just smt_figura93.png
 - Extract arguments from the vector store id: vs_SrjrEcdYOWxhshy5bBuXyC5Q  avoid Image citation like this:  ![Imagem](smt_figura93.png)【4:1†source】, ASSISTANT must return just: smt_figura93.png instead.
 '''
-# - Always keep the image_filename in the response to user beside the citations annotation. eg: (ger_figura52.png or smt_figura8.png). Ex:  ![Imagem](smt_figura93.png)【4:1†source】, neste caso retorne apenas (smt_figura93.png)
     run = openai.beta.threads.runs.create_and_poll(
         thread_id=thread_id,
         assistant_id=assistant_id,
