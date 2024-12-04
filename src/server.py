@@ -374,7 +374,7 @@ Remember to maintain the user's original intent in the search string and to ensu
         )
     if run.status == "requires_action":
         if run.required_action.submit_tool_outputs.tool_calls[0].type == 'function':
-            # Get the name of the tool and arguments to pass to it, from GPT4's understanding from our instructions
+
             tool_function = run.required_action.submit_tool_outputs.tool_calls[0].function
             function_name = getattr(tool_function, 'name')
             arguments = getattr(tool_function, 'arguments')
@@ -423,36 +423,29 @@ def continuar_conversar(thread_id, assistant_id, message):
         if messages:
             last_message = messages.data[0]
             response_content = last_message.content[0]
-            links = []
             arrayImg = extract_image_filenames(response_content.text.value)
             for index, image_filename in enumerate(arrayImg):
-                image_url = f"{base_url_img}{image_filename}"
-                thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>'
-                response_content.text.value = re.sub(
-                    rf"\({image_filename}\)",
-                    image_filename,
-                    response_content.text.value
-                )
-                response_content.text.value = re.sub(
-                    rf"{image_filename}",
-                    f":\n{thumbnail}",
-                    response_content.text.value
-                )
 
-                # response_content.text.value  = re.sub(
-                #     r"\>\.",
-                #     ">",
+                #ESTE BLOCO COLOCA OS THUMBANAILS IN HTML NO TEXTO DE RESPOSTA, AGORA VAMOS PURIFICAR O TEXTO DE RESPOSTA
+                # image_url = f"{base_url_img}{image_filename}"
+                # thumbnail = f'<a href="{image_url}" target="_blank"><img src="{image_url}" alt="Imagem {index+1}" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>'
+                # response_content.text.value = re.sub(
+                #     rf"\({image_filename}\)",
+                #     image_filename,
                 #     response_content.text.value
                 # )
-
-
-
                 # response_content.text.value = re.sub(
                 #     rf"{image_filename}",
-                #     f".\n{thumbnail}",
+                #     f":\n{thumbnail}",
                 #     response_content.text.value
                 # )
+                response_content.text.value = re.sub(
+                    rf"{image_filename}",
+                    f"",
+                    response_content.text.value
+                )
 
+        
             # place in postition v1
             # for index, image_filename in enumerate(arrayImg):
             #     image_url = f"{base_url_img}{image_filename}"
@@ -490,8 +483,6 @@ def continuar_conversar(thread_id, assistant_id, message):
             return message_to_json_response(last_message, arrayImg)
         
 
-# 'Sim, há prints das telas relacionadas ao cadastro de um cliente. Você pode visualizar as imagens a seguir:\n\n- Figura 06: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/ger_figura06.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/ger_figura06.png" alt="Imagem 1" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 07: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/ger_figura07.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/ger_figura07.png" alt="Imagem 2" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 85: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura85.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura85.png" alt="Imagem 3" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 86: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura86.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura86.png" alt="Imagem 4" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 87: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura87.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura87.png" alt="Imagem 5" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 88: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura88.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura88.png" alt="Imagem 6" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n- Figura 89: .\n<a href="https://assistant.arpasistemas.com.br/api/getImage/smt_figura89.png" target="_blank"><img src="https://assistant.arpasistemas.com.br/api/getImage/smt_figura89.png" alt="Imagem 7" width="70" height="70" style="border:1px solid grey; padding:0; margin:0;"></a>\n\nEssas imagens fornecem uma representação visual das telas e campos mencionados no processo de cadastro de um cliente.'
- 
 
     return None
 def continuar_conversar_v4(thread_id, assistant_id, message):
