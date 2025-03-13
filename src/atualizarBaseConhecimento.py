@@ -7,6 +7,7 @@ from openai import OpenAI
 import re
 import unicodedata
 SERVER_URL = 'https://assistant.arpasistemas.com.br/api/getImage'
+# SERVER_URL = 'http://127.0.0.1:4014/api/getImage'
 client = OpenAI()
 def setup_database(db_path):
     conn = sqlite3.connect(db_path)
