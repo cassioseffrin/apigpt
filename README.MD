@@ -1,3 +1,10 @@
+
+pip freeze > requirements.txt
+
+
+
+ para criar a lista de dependecias.
+
 OLD
 asst_flN0aLfDHU2Mg35WVKz0XIk1
 
@@ -29,21 +36,52 @@ RODAR ESSE EM TODAS ATUALIZACOES DO SERVER DEBIAN
 source myenv/bin/activate
 
 
+Virtual Environment
+A virtual environment is persistent, meaning it stays on your system even after you restart your machine. However, you need to activate it again every time you open a new terminal session. 
+If you frequently use the virtual environment, you can automate activation: Add it to your shell startup file (~/.zshrc, ~/.bashrc, etc.):
+echo "source /Users/arpasistemas/dev/gpt/myenv/bin/activate" >> ~/.zshrc
 
-python3 -m venv myenv
-pip install --upgrade pip setuptools wheel
+This will activate the environment automatically when opening a terminal.
+
+
+
+
+Create a virtual environment:
+#python3 -m venv /Users/arpasistemas/dev/gpt/myenv
+
+
+Activate the virtual environment:
+ 
+ 
+#source /Users/arpasistemas/dev/gpt/myenv/bin/activate
+
+
+Install the packages inside the virtual environment:
+ 
+
+
+/Users/arpasistemas/dev/gpt/myenv
 pip install python-docx pillow openai
 pip install fuzzywuzzy python-Levenshtein
 pip install sentence-transformers
 pip install "numpy<2"    
-pip3 install  load_dotenv
-<!-- pip install transformers -->
+pip install  load_dotenv
+<!-- pip3 install transformers -->
 <!-- pip install sentencepiece -->
 <!-- pip install torch -->
 <!-- pip install sentence_transformers -->
  
 python3 src/extract_images_desc_below_Image.py "/home/arpa/apigpt/src/docx/smartv5.docx"  "/home/arpa/apigpt/src/docx/imgsSmart"  "asst_flN0aLfDHU2Mg35WVKz0XIk1"  "false" "false" 
 python3 src/server.py
+
+
+
+
+
+python3 src/extract_images_desc_below_Image.py "/Users/arpasistemas/dev/gpt/src/docx/smartv7.docx"  "/Users/arpasistemas/dev/gpt/src/imgs/smart7"  "asst_flN0aLfDHU2Mg35WVKz0XIk1"  "false" "false" 
+
+python3 src/server.py
+
 
 
 REUNIAO PROXIMOS PASSOS IA
