@@ -100,7 +100,9 @@ def generate_filename_from_alt_text(alt_text,   ext):
         c for c in unicodedata.normalize('NFD', alt_text_no_spaces)
         if unicodedata.category(c) != 'Mn'
     )
-    return f"{alt_text_normalized}.{ext}"
+    # return f"{alt_text_normalized}.{ext}"
+    #arquivo gerado pelo google docs ja traz extensao
+    return f"{alt_text_normalized}"
 def save_images_to_disk(image_data, vectorStorePath):
     completeFilePath = "./src/imgs/"+vectorStorePath
     if not os.path.exists(completeFilePath):
