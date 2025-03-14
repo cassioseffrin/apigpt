@@ -11,13 +11,11 @@ import re
 from openai import OpenAI
 import re
 client = OpenAI()
-# base_url_img = "https://assistant.arpasistemas.com.br/api/images/"
 base_url_img = "https://assistant.arpasistemas.com.br/api/getImage/"
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
 import openai
-from Levenshtein import distance as levenshtein_distance
 import os
 from flask import send_from_directory
 import json
