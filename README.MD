@@ -54,7 +54,7 @@ Install the packages inside the virtual environment:
 
 
 
-EXECUTAR ISSO NO SERVIDOR PRA COLOCAR EM PRODUCAO
+EXECUTAR ISSO NO SERVIDOR PRA COLOCAR EM PRODUCAO, ATIVACAO DO ENV E APENAS DEPENDENCIAS NECESSARIAS PARA O SERVER.PY
 python3 -m venv /home/arpa/assistenteSmart/myenv
 source /home/arpa/assistenteSmart/myenv/bin/activate
 pip install python-docx pillow openai
