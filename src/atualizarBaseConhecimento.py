@@ -245,8 +245,8 @@ def replace_images_with_text(image_data, doc_path, filepath, output_path, conn):
                     image, alt_text, filename, shape, content_type = image_data[image_index]
                     image_filename = f"{filepath}_{filename}"
                     title, description = get_description_from_db(conn, image_filename)
-                    new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({image_filename}), Descrição: ")
-                    new_paragraph.add_run(f"{description} IMAGE_FILENAME: ({image_filename})")
+                    # new_paragraph.add_run(f"{title} IMAGE_FILENAME: ({image_filename}), Descrição: ")
+                    new_paragraph.add_run(f"{description} IMAGE_URI: \"{image_filename}\".")
                     image_index += 1
             else:
                 new_paragraph.add_run(run.text)
