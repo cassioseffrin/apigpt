@@ -8,7 +8,6 @@ import sqlite3
 import base64
 from dotenv import load_dotenv
 import re
-from fuzzywuzzy import fuzz
 from openai import OpenAI
 import re
 client = OpenAI()
@@ -21,7 +20,7 @@ import openai
 from Levenshtein import distance as levenshtein_distance
 import os
 from flask import send_from_directory
-
+import json
 
 
 
@@ -158,16 +157,8 @@ def conversar(thread_id, assistant_id):
         return None
  
  
-import json
-def gpt_similarity(text1, text2):
-    response = openai.Completion.create(
-        engine="gpt-4",
-        prompt=f"Calculate similarity between '{text1}' and '{text2}' on a scale from 0 to 1.",
-        max_tokens=10,
-        temperature=0
-    )
-    similarity_score = float(response.choices[0].text.strip())
-    return 1 - similarity_score  
+
+
   
 def extract_image_filenames(text):
     """Extract all image filenames from the text."""

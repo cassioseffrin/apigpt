@@ -40,24 +40,29 @@ Virtual Environment
 A virtual environment is persistent, meaning it stays on your system even after you restart your machine. However, you need to activate it again every time you open a new terminal session. 
 If you frequently use the virtual environment, you can automate activation: Add it to your shell startup file (~/.zshrc, ~/.bashrc, etc.):
 echo "source /Users/arpasistemas/dev/gpt/myenv/bin/activate" >> ~/.zshrc
-
 This will activate the environment automatically when opening a terminal.
-
-
-
 
 Create a virtual environment:
 #python3 -m venv /Users/arpasistemas/dev/gpt/myenv
 
-
 Activate the virtual environment:
- 
- 
 #source /Users/arpasistemas/dev/gpt/myenv/bin/activate
 
 
 Install the packages inside the virtual environment:
  
+
+
+
+EXECUTAR ISSO NO SERVIDOR PRA COLOCAR EM PRODUCAO
+python3 -m venv /home/arpa/assistenteSmart/myenv
+source /home/arpa/assistenteSmart/myenv/bin/activate
+pip install python-docx pillow openai
+pip install "numpy<2"    
+pip install  load_dotenv
+pip install  flask
+
+
 
 
 /Users/arpasistemas/dev/gpt/myenv
