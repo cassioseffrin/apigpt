@@ -1,0 +1,18 @@
+[Unit]
+Description=Inicia API do assistenteSmart
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/arpa/assistenteSmart
+ExecStart=/home/arpa/assistenteSmart/myenv/bin/python src/server.py
+Environment=OPENAI_API_KEY=CHAVE
+
+
+Environment=PYTHONUNBUFFERED=1
+User=root
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
